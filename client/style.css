@@ -1,6 +1,6 @@
 ﻿/* fond de page */
 body {
-  background-image: linear-gradient(0deg, slateblue, black, black);
+  background-image: linear-gradient(0deg, rgba(102, 255, 153), white, white);
   background-size: 100%;
   background-repeat: no-repeat;
   color: white;
