@@ -13,7 +13,7 @@ import matplotlib.dates as pltd
 # numéro du port TCP utilisé par le serveur
 port_serveur = 8081
 # nom de la base de données
-BD_name = "velov-stations.csv"
+BD_name = "velov-stations.db.sql"
 
 class RequestHandler(http.server.SimpleHTTPRequestHandler):
   """"Classe dérivée pour traiter les requêtes entrantes du serveur"""
