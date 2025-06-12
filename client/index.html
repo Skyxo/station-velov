@@ -29,8 +29,25 @@
 </body>
 
 <script>
-// Creation d'une carte dans la balise div "map", et positionne la vue sur un point donné et un niveau de zoom
-var map = L.map('map').setView([46.5,2.5], 5);
+// Récupérer le centre géographique des stations et centrer la carte
+function initialize_map() {
+    var xhr = new XMLHttpRequest();
+    xhr.onload = function() {
+        if (this.status != 200) {
+            console.error("Erreur lors de la récupération du centre des stations");
+            return;
+        }
+        var center = JSON.parse(this.responseText);
+        // Centrer la carte sur le centre calculé
+        map.setView([center.lat, center.lon], 10);
+    };
+    xhr.open('GET', '/center', true);
+    xhr.send();
+}
+
+// Appeler `initialize_map` au lieu de définir directement `setView`
+var map = L.map('map');
+initialize_map();
 // Ajout d'une couche de dalles OpenStreetMap
 L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png', {
      attribution: '&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
