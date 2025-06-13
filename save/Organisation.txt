@@ -1,8 +1,0 @@
-1) Lancer le serveur Python
-2) Le fichier HTML dans /client est le fichier web principal
-3) Pour modifier l'apparence de la page, il faut modifier style.css dans /client
-4) Ajouter les images dans /client/images
-
-
-A voir en temps voulu : créer un fichier script.js dans /client
-Télécharger en local les fichier script Leaflet, par exemple pour avoir plus de personnalisation des curseurs.

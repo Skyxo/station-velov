@@ -9,28 +9,50 @@
 <meta charset="utf-8">
 
 <style>
-#map { height: 400px; width: 400px; float:left; margin-left:20px; margin-right:20px;}
+#map { 
+    height: 90vh; /* 90% de la hauteur de la fenêtre */
+    width: 95%;   /* 95% de la largeur du conteneur */
+    margin: 0 auto; /* centrage horizontal */
+    position: relative;
+    z-index: 1;
+}
 </style>
 
-<body onload="load_data()">  <!-- Récupération des données avec le chargement de la page -->
-
-<h1>Régularité des TER</h1>
-
- <!-- <label><span>Région :</span><input id="region" name="Region"> 
- <button id="bouton">Afficher la courbe</button>  </label>  -->
- <div id="map"></div>  
-
-<div id="reponse">
-  <p align="center"></p>
-  <img width="70%" src="" />
-</div>
-<div>
-</div>
+<body onload="load_data()">
+    <h1>Régularité des TER</h1>
+    
+    <!-- La carte prend maintenant plus d'espace -->
+    <div id="map"></div>
+    
+    <!-- Les autres éléments sont placés après la carte -->
+    <div id="reponse">
+        <p align="center"></p>
+        <img width="70%" src="" />
+    </div>
 </body>
 
 <script>
-// Creation d'une carte dans la balise div "map", et positionne la vue sur un point donné et un niveau de zoom
-var map = L.map('map').setView([46.5,2.5], 5);
+
+
+// Récupérer le centre géographique des stations et centrer la carte
+function initialize_map() {
+    var xhr = new XMLHttpRequest();
+    xhr.onload = function() {
+      if (this.status != 200) {
+        console.error("Erreur lors de la récupération du centre des stations");
+        return;
+      }
+      var center = JSON.parse(this.responseText);
+      // Centrer la carte sur le centre calculé
+      map.setView([center.lat, center.lon], 15);
+    };
+    xhr.open('GET', '/center', true);
+    xhr.send();
+}
+
+// Appeler `initialize_map` au lieu de définir directement `setView`
+var map = L.map('map');
+initialize_map();
 // Ajout d'une couche de dalles OpenStreetMap
 L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png', {
      attribution: '&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
@@ -45,18 +67,25 @@ function load_data () {
 	    legende.innerHTML = "Erreur. code = " + this.status;
 	    return;
 	    }
-      // récupération des données renvoyées par le serveur
-	  var data = JSON.parse(this.responseText);
-      // boucle sur les enregistrements renvoyés
-      for ( n = 0; n < data.length; n++ ) {
-        // insertion d'un marqueur à la position, attachement d'une popup, capture de l'évènement "clic'
-	    L.marker([data[n].lat,data[n].lon]).addTo(map)
+      
+      // Définir une icône personnalisée avec taille spécifique
+      var customIcon = L.icon({
+          iconUrl: 'images/marker-icon_v.png', // Utiliser votre icône existante
+          iconSize: [45, 45],     // Taille de l'icône [largeur, hauteur]
+          iconAnchor: [0, 0],   // Point d'ancrage (bas de l'icône)
+          popupAnchor: [22, 0]   // Position de la popup
+      });
+      
+      var data = JSON.parse(this.responseText);
+      for (n = 0; n < data.length; n++) {
+        // Ajouter l'icône personnalisée comme option
+        L.marker([data[n].lat, data[n].lon], {icon: customIcon}).addTo(map)
           .bindPopup(data[n].nom)
-		  .addEventListener('click',OnMarkerClick)
-		  .idreg=data[n].nom;   // propriété personnalisée ajouté au marqueur
-	    }
+          .addEventListener('click', OnMarkerClick)
+          .idreg = data[n].nom;
+      }
     };
-    xhr.open('GET','/regions',true);
+    xhr.open('GET', '/regions', true);
     xhr.send();
 }
 

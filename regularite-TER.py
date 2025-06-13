@@ -23,7 +23,7 @@ import matplotlib.dates as pltd
 # numéro du port TCP utilisé par le serveur
 port_serveur = 8080
 # nom de la base de données
-BD_name ="ter.sqlite"
+BD_name ="velov.sqlite"
 
 class RequestHandler(http.server.SimpleHTTPRequestHandler):
   """"Classe dérivée pour traiter les requêtes entrantes du serveur"""
@@ -42,6 +42,10 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
 
     # On récupère les étapes du chemin d'accès
     self.init_params()
+
+    if self.path_info[0] == 'center':
+      self.send_center()
+      return
 
     # le chemin d'accès commence par /regions
     if self.path_info[0] == 'regions':
@@ -63,18 +67,19 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
     c = conn.cursor()
     
     # récupération de la liste des régions et coordonnées (import de regions.csv)
-    c.execute("SELECT * FROM 'regions'")
+    c.execute("SELECT nom, lat, lon FROM 'velov-stations'")
     r = c.fetchall()
     body = json.dumps([{'nom':n, 'lat':lat, 'lon': lon} 
                        for (n,lat,lon) in r])    
-
     # envoi de la réponse
     headers = [('Content-Type','application/json')];
     self.send(body,headers)
 
 
   def send_ponctualite(self):
-    """Retourner une réponse faisant référence au graphique de ponctualite"""
+    return None
+    
+    """Retourner une réponse faisant référence au graphique de ponctualite
 
     # création du curseur (la connexion a été créée par le programme principal)
     c = conn.cursor()
@@ -112,7 +117,42 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
      
     # envoi de la réponse
     headers = [('Content-Type','application/json')];
-    self.send(body,headers)
+    self.send(body,headers)"""
+
+  def send_center(self):
+    """Calculer et envoyer le centre géographique des stations depuis SQLite"""
+    if not os.path.exists(BD_name):
+        self.send_error(404, "Base de données non trouvée")
+        return
+
+    # Connexion à la base de données SQLite
+    try:
+        c = conn.cursor()
+        # Récupération des latitudes et longitudes depuis la table velov-stations
+        c.execute("SELECT lat, lon FROM 'velov-stations'")
+        rows = c.fetchall()
+
+        if not rows:
+            self.send_error(404, "Aucune station trouvée dans la base de données")
+            return
+
+        # Extraction des latitudes et longitudes
+        latitudes = [row[0] for row in rows]
+        longitudes = [row[1] for row in rows]
+
+        # Calcul du centre
+        center_lat = (max(latitudes) + min(latitudes)) / 2
+        center_lon = (max(longitudes) + min(longitudes)) / 2
+
+        # Conversion en JSON
+        body = json.dumps({'lat': center_lat, 'lon': center_lon})
+
+        # Envoi de la réponse
+        headers = [('Content-Type', 'application/json')]
+        self.send(body, headers)
+
+    except sqlite3.Error as e:
+        self.send_error(500, f"Erreur SQLite : {e}")
 
 
   def creer_graphique(self, region, nom_fichier):
