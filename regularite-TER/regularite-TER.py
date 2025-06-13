@@ -1,3 +1,13 @@
+# -*- coding: utf-8 -*-
+"""
+Serveur web permettant d'afficher les courbes de résularité des TER
+
+Correspond au corrigé du dernier exercice du TD3, §5.1 (TD3-s7.py)
+Contient une version basique du cache
+
+@author: Ecole Centrale de Lyon, 2024
+"""
+
 import http.server
 import socketserver
 from urllib.parse import urlparse, parse_qs, unquote
@@ -11,9 +21,9 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as pltd
 
 # numéro du port TCP utilisé par le serveur
-port_serveur = 8081
+port_serveur = 8080
 # nom de la base de données
-BD_name = "velov-stations.csv"
+BD_name = "ter.sqlite"
 
 class RequestHandler(http.server.SimpleHTTPRequestHandler):
   """"Classe dérivée pour traiter les requêtes entrantes du serveur"""
@@ -33,20 +43,8 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
     # On récupère les étapes du chemin d'accès
     self.init_params()
 
-    if self.path_info[0] == 'center':
-      self.send_center()
-
-    # Vérification si le fichier demandé est un fichier statique (CSS, JS, images, etc.)
-    if self.path.startswith('/style.css') or self.path.startswith('/images/') or self.path.startswith('/courbes/'):
-        super().do_GET()
-        return
-
-    # le chemin d'accès commence par /stations
-    if self.path_info[0] == 'stations':
-        self.send_stations()
-
     # le chemin d'accès commence par /regions
-    elif self.path_info[0] == 'regions':
+    if self.path_info[0] == 'regions':
       self.send_regions()
 
     # le chemin d'accès commence par /ponctualite
@@ -116,60 +114,6 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
     headers = [('Content-Type','application/json')];
     self.send(body,headers)
 
-  def send_center(self):
-    """Calculer et envoyer le centre géographique des stations"""
-    if not os.path.exists(BD_name):
-        self.send_error(404, "Fichier des stations non trouvé")
-        return
-
-    # Lecture des données du fichier CSV
-    latitudes = []
-    longitudes = []
-    with open(BD_name, 'r', encoding='utf-8') as f:
-        for line in f.readlines()[1:]:  # Ignorer l'en-tête
-            data = line.strip().split(';')
-            latitudes.append(float(data[-1].replace(',', '.')))
-            longitudes.append(float(data[-2].replace(',', '.')))
-
-    # Calcul du centre
-    center_lat = (max(latitudes) + min(latitudes)) / 2
-    center_lon = (max(longitudes) + min(longitudes)) / 2
-
-    # Conversion en JSON
-    body = json.dumps({'lat': center_lat, 'lon': center_lon})
-
-    # Envoi de la réponse
-    headers = [('Content-Type', 'application/json')]
-    self.send(body, headers)
-
-  def send_stations(self):
-    """Générer une réponse avec la liste des stations de vélo"""
-
-    # Vérification de la présence du fichier CSV
-    if not os.path.exists(BD_name):
-        self.send_error(404, "Fichier des stations non trouvé")
-        return
-
-    # Lecture des données du fichier CSV
-    stations = []
-    with open(BD_name, 'r', encoding='utf-8') as f:
-        for line in f.readlines()[1:]:  # Ignorer l'en-tête
-            data = line.strip().split(';')
-            stations.append({
-                'id': data[0],
-                'nom': data[1],
-                'adresse': data[2],
-                'arrondissement': data[4],
-                'latitude': float(data[-2].replace(',', '.')),
-                'longitude': float(data[-1].replace(',', '.'))
-            })
-
-    # Conversion en JSON
-    body = json.dumps(stations)
-
-    # Envoi de la réponse
-    headers = [('Content-Type', 'application/json')]
-    self.send(body, headers)
 
   def creer_graphique(self, region, nom_fichier):
     """Générer un graphique de ponctualite et l'enregistrer dans le cache"""
