@@ -23,7 +23,7 @@ import matplotlib.dates as pltd
 # numéro du port TCP utilisé par le serveur
 port_serveur = 8080
 # nom de la base de données
-BD_name = "ter.sqlite"
+BD_name ="ter.sqlite"
 
 class RequestHandler(http.server.SimpleHTTPRequestHandler):
   """"Classe dérivée pour traiter les requêtes entrantes du serveur"""
