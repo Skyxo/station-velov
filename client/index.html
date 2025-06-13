@@ -1,113 +1,239 @@
 <!DOCTYPE html>
+<html>
+<head>
+    <script src="leaflet.js"></script>
+    <title>Stations Vélo'v</title>
+    <link rel="stylesheet" type="text/css" href="leaflet.css" /> 
+    <link rel="stylesheet" type="text/css" href="style.css"/>
+    <meta charset="utf-8">
+    <style>
+        /* Styles existants */
+        #map { 
+            height: 85vh; /* 90% de la hauteur de la fenêtre */
+            width: 95%;   /* 95% de la largeur du conteneur */
+            margin: 0 auto; /* centrage horizontal */
+            position: relative;
+            z-index: 1;
+        }
 
-<script src="leaflet.js"> // insertion bibliothèque Leaflet : http://leafletjs.com/ </script>
+        /* Nouveaux styles pour la popup */
+        .station-popup {
+            min-width: 250px;
+        }
 
-<title>TD3-s7.html</title>
-<link rel="stylesheet" type="text/css" href="leaflet.css" /> 
-<link rel="stylesheet" type="text/css" href="style.css"/>
+        .station-popup h3 {
+            margin: 0 0 10px 0;
+            border-bottom: 1px solid #ccc;
+            padding-bottom: 5px;
+        }
 
-<meta charset="utf-8">
+        .station-popup .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
 
-<style>
-#map { 
-    height: 85vh; /* 90% de la hauteur de la fenêtre */
-    width: 95%;   /* 95% de la largeur du conteneur */
-    margin: 0 auto; /* centrage horizontal */
-    position: relative;
-    z-index: 1;
-}
-</style>
+        .station-popup .label {
+            font-weight: bold;
+            color: #555;
+        }
 
-<body onload="load_data()">
+        .station-popup .value {
+            text-align: right;
+        }
+
+        .station-popup .address {
+            font-style: italic;
+            margin-bottom: 10px;
+            color: #666;
+        }
+
+        .station-popup .status-open {
+            color: #4CAF50; /* Vert */
+            font-weight: bold;
+        }
+
+        .station-popup .status-closed {
+            color: #F44336; /* Rouge */
+            font-weight: bold;
+        }
+
+        .bikes-available {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+        }
+
+        .bike-type {
+            text-align: center;
+            padding: 5px;
+            border-radius: 4px;
+            background-color: #f5f5f5;
+            flex: 1;
+            margin: 0 2px;
+        }
+
+        .bike-count {
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+
+        .last-update {
+            margin-top: 10px;
+            font-size: 0.8em;
+            color: #888;
+            text-align: right;
+        }
+    </style>
+</head>
+
+<body onload="initialize_page()">
     <h1>Stations Vélo'v</h1>
-    
-    <!-- La carte prend maintenant plus d'espace -->
     <div id="map"></div>
-    
-    <!-- Les autres éléments sont placés après la carte -->
-    <div id="reponse">
-        <p align="center"></p>
-        <img width="70%" src="" />
-    </div>
 </body>
 
+
+
 <script>
+    var map; // Déclarer la variable map globalement
+    
+    // Fonction d'initialisation de la page
+    function initialize_page() {
+        // Initialiser la carte avec un centre temporaire
+        map = L.map('map').setView([45.75, 4.85], 13);
+        
+        // Ajouter les tuiles OpenStreetMap
+        L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+        
+        // Charger le centre de la carte puis les données
+        initialize_map();
+        load_data();
+    }
+    
+    // Récupérer le centre géographique des stations et centrer la carte
+    function initialize_map() {
+        var xhr = new XMLHttpRequest();
+        xhr.onload = function() {
+            if (this.status != 200) {
+                console.error("Erreur lors de la récupération du centre des stations");
+                return;
+            }
+            var center = JSON.parse(this.responseText);
+            // Centrer la carte sur le centre calculé
+            map.setView([center.lat, center.lon], 14);
+        };
+        xhr.open('GET', '/center', true);
+        xhr.send();
+    }
 
 
-// Récupérer le centre géographique des stations et centrer la carte
-function initialize_map() {
-    var xhr = new XMLHttpRequest();
-    xhr.onload = function() {
-      if (this.status != 200) {
-        console.error("Erreur lors de la récupération du centre des stations");
-        return;
-      }
-      var center = JSON.parse(this.responseText);
-      // Centrer la carte sur le centre calculé
-      map.setView([center.lat, center.lon], 15);
-    };
-    xhr.open('GET', '/center', true);
-    xhr.send();
-}
+    // Fonction modifiée pour charger les marqueurs avec leurs IDs
+    function load_data () {
+        var xhr = new XMLHttpRequest();
+        xhr.onload = function() {
+          if (this.status != 200) {
+            console.error("Erreur lors de la récupération des stations");
+            return;
+          }
+          
+          // Définir une icône personnalisée avec taille spécifique
+          var customIcon = L.icon({
+              iconUrl: 'images/marker-icon_v.png',
+              iconSize: [45, 45],
+              iconAnchor: [0, 0],
+              popupAnchor: [22, 0]
+          });
+          
+          var data = JSON.parse(this.responseText);
+          for (n = 0; n < data.length; n++) {
+            // Ajouter l'ID de la station pour pouvoir le récupérer lors du clic
+            L.marker([data[n].lat, data[n].lon], {icon: customIcon}).addTo(map)
+              .bindPopup(data[n].nom)
+              .addEventListener('click', OnMarkerClick)
+              .stationId = data[n].idstation || data[n].nom; // Utiliser idstation s'il existe, sinon nom
+          }
+        };
+        xhr.open('GET', '/regions', true);
+        xhr.send();
+    }
 
-// Appeler `initialize_map` au lieu de définir directement `setView`
-var map = L.map('map');
-initialize_map();
-// Ajout d'une couche de dalles OpenStreetMap
-L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png', {
-     attribution: '&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
-     }).addTo(map);
-	 
-function load_data () {
-    var xhr = new XMLHttpRequest();
-    xhr.onload = function() {   // fonction callback
-	  if (this.status != 200) {  // test erreur 
-	    image.src = "";
-	    image.alt = "";
-	    legende.innerHTML = "Erreur. code = " + this.status;
-	    return;
-	    }
-      
-      // Définir une icône personnalisée avec taille spécifique
-      var customIcon = L.icon({
-          iconUrl: 'images/marker-icon_v.png', // Utiliser votre icône existante
-          iconSize: [45, 45],     // Taille de l'icône [largeur, hauteur]
-          iconAnchor: [0, 0],   // Point d'ancrage (bas de l'icône)
-          popupAnchor: [22, 0]   // Position de la popup
-      });
-      
-      var data = JSON.parse(this.responseText);
-      for (n = 0; n < data.length; n++) {
-        // Ajouter l'icône personnalisée comme option
-        L.marker([data[n].lat, data[n].lon], {icon: customIcon}).addTo(map)
-          .bindPopup(data[n].nom)
-          .addEventListener('click', OnMarkerClick)
-          .idreg = data[n].nom;
-      }
-    };
-    xhr.open('GET', '/regions', true);
-    xhr.send();
-}
+    function OnMarkerClick (e) {
+        var xhr = new XMLHttpRequest();
+        xhr.onload = function() {
+          if (this.status != 200) {
+            console.error("Erreur lors de la récupération des données de la station");
+            return;
+          }
+          
+          var station = JSON.parse(this.responseText);
+          
+          // Construction du HTML pour la popup
+          var content = '<div class="station-popup">';
+          
+          // En-tête avec nom et statut
+          content += '<h3>' + station.nom + '</h3>';
+          content += '<div class="address">' + formatAddress(station) + '</div>';
+          
+          // Statut de la station (ouverte/fermée)
+          var statusClass = station.status === 'OPEN' ? 'status-open' : 'status-closed';
+          var statusText = station.status === 'OPEN' ? 'Ouverte' : 'Fermée';
+          content += '<div class="info-row"><span class="label">Statut :</span> <span class="value ' + statusClass + '">' + statusText + '</span></div>';
+          
+          // Capacité totale
+          content += '<div class="info-row"><span class="label">Capacité :</span> <span class="value">' + station.capacity + ' bornettes</span></div>';
+          
+          // Places disponibles et vélos disponibles
+          content += '<div class="info-row"><span class="label">Places libres :</span> <span class="value">' + station.stands + '</span></div>';
+          content += '<div class="info-row"><span class="label">Vélos disponibles :</span> <span class="value">' + station.bikes + '</span></div>';
+          
+          // Types de vélos disponibles
+          content += '<div class="bikes-available">';
+          content += '<div class="bike-type"><div class="bike-count">' + station.electricalBikes + '</div><div>Électriques</div></div>';
+          content += '<div class="bike-type"><div class="bike-count">' + station.mechanicalBikes + '</div><div>Mécaniques</div></div>';
+          content += '</div>';
+          
+          // Information bonus
+          if (station.stationbonus === 'oui') {
+            content += '<div class="info-row"><span class="label">Station bonus</span> <span class="value">✓</span></div>';
+          }
+          
+          // Dernière mise à jour
+          content += '<div class="last-update">Dernière mise à jour : ' + formatDate(station.horodate) + '</div>';
+          
+          content += '</div>';
+          
+          // Remplacer le contenu de la popup
+          e.target.getPopup().setContent(content);
+          e.target.getPopup().update();
+        };
+        
+        // Nouvelle route pour récupérer les détails de la station
+        xhr.open('GET', '/station/' + e.target.stationId, true);
+        xhr.send();
+    }
 
-function OnMarkerClick (e) {
-    var xhr = new XMLHttpRequest();
-	var image =  document.querySelector('#reponse img'),
-        legende = document.querySelector('#reponse p');
-	xhr.onload = function() {   // fonction callback
-	  if (this.status != 200) {  // test erreur 
-	    image.src = "";
-        image.alt = "";
-        legende.innerHTML = "Erreur. code = " + this.status;
-		return;
-		}
-      var data = JSON.parse(this.responseText)
-      image.src = data.img;
-      image.alt = data.title;
-      legende.innerHTML = data.title;
-      };
-    xhr.open('GET','/ponctualite/'+e.target.idreg,true);  // on récupère la courbe par un appel au serveur
-    xhr.send();
-}
+    // Fonction pour formater l'adresse
+    function formatAddress(station) {
+        let address = station.adresse1 || '';
+        if (station.adresse2 && station.adresse2.trim() !== '') {
+            address += ', ' + station.adresse2;
+        }
+        if (station.commune) {
+            address += ' - ' + station.commune;
+        }
+        return address;
+    }
+
+    // Fonction pour formater la date
+    function formatDate(dateStr) {
+        if (!dateStr) return 'Non disponible';
+        try {
+            const date = new Date(dateStr);
+            return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+        } catch (e) {
+            return dateStr;
+        }
+    }
 </script>
-
-

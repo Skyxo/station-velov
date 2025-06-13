@@ -36,7 +36,6 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
 
     super().__init__(*args, directory=self.static_dir, **kwargs)
     
-
   def do_GET(self):
     """Traiter les requêtes GET (surcharge la méthode héritée)"""
 
@@ -48,34 +47,109 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
       return
 
     # le chemin d'accès commence par /regions
-    if self.path_info[0] == 'regions':
+    elif self.path_info[0] == 'regions':
       self.send_regions()
+      return
+
+    # le chemin d'accès commence par /station/{id}
+    elif self.path_info[0] == 'station' and len(self.path_info) > 1:
+      self.send_station_details(self.path_info[1])
+      return
 
     # le chemin d'accès commence par /ponctualite
     elif self.path_info[0] == 'ponctualite':
       self.send_ponctualite()
+      return
 
     # sinon appel de la méthode parente...
     else:
       super().do_GET()
 
+  def send_station_details(self, station_id):
+    """Envoyer les détails d'une station spécifique avec les données historiques récentes"""
+    try:
+        c = conn.cursor()
+        
+        # Récupération des informations de la station
+        c.execute('''
+            SELECT idstation, nom, adresse1, adresse2, commune, nbbornettes, 
+                    stationbonus, pole, ouverte, lon, lat
+            FROM "velov-stations" 
+            WHERE idstation = ? OR nom = ?
+        ''', (station_id, station_id))
+        
+        station_info = c.fetchone()
+        
+        if not station_info:
+            self.send_error(404, "Station non trouvée")
+            return
+        
+        # Récupération des dernières données de disponibilité
+        c.execute('''
+            SELECT horodate, status, capacity, bikes, stands,
+                    electricalBikes, mechanicalBikes, 
+                    electricalInternalBatteryBikes, electricalRemovableBatteryBikes
+            FROM "velov-histo"
+            WHERE number = ?
+            ORDER BY horodate DESC
+            LIMIT 1
+        ''', (station_info[0],))  # Utilise l'idstation pour la correspondance
+        
+        histo_data = c.fetchone()
+        
+        # Création du dictionnaire de réponse
+        response = {
+            'idstation': station_info[0],
+            'nom': station_info[1],
+            'adresse1': station_info[2],
+            'adresse2': station_info[3],
+            'commune': station_info[4],
+            'nbbornettes': station_info[5],
+            'stationbonus': station_info[6],
+            'pole': station_info[7],
+            'ouverte': station_info[8],
+            'lon': station_info[9],
+            'lat': station_info[10]
+        }
+        
+        # Ajout des données historiques si disponibles
+        if histo_data:
+            response.update({
+                'horodate': histo_data[0],
+                'status': histo_data[1],
+                'capacity': histo_data[2],
+                'bikes': histo_data[3],
+                'stands': histo_data[4],
+                'electricalBikes': histo_data[5],
+                'mechanicalBikes': histo_data[6],
+                'electricalInternalBatteryBikes': histo_data[7],
+                'electricalRemovableBatteryBikes': histo_data[8]
+            })
+        
+        # Envoi de la réponse
+        body = json.dumps(response)
+        headers = [('Content-Type', 'application/json')]
+        self.send(body, headers)
+        
+    except sqlite3.Error as e:
+        self.send_error(500, f"Erreur SQLite : {e}")
+        print(f"Erreur SQLite dans send_station_details : {e}")
 
   def send_regions(self):
-    """Génèrer une réponse avec la liste des régions (version TD3, §5.1)"""
- 
-    # création du curseur (la connexion a été créée par le programme principal)
-    c = conn.cursor()
-    
-    # récupération de la liste des régions et coordonnées (import de regions.csv)
-    c.execute("SELECT nom, lat, lon FROM 'velov-stations'")
-    r = c.fetchall()
-    body = json.dumps([{'nom':n, 'lat':lat, 'lon': lon} 
-                       for (n,lat,lon) in r])    
-    # envoi de la réponse
-    headers = [('Content-Type','application/json')];
-    self.send(body,headers)
-
-
+      """Génèrer une réponse avec la liste des régions (version TD3, §5.1)"""
+  
+      # création du curseur (la connexion a été créée par le programme principal)
+      c = conn.cursor()
+      
+      # récupération de la liste des régions et coordonnées (import de regions.csv)
+      c.execute("SELECT idstation, nom, lat, lon FROM 'velov-stations'")
+      r = c.fetchall()
+      body = json.dumps([{'idstation':id, 'nom':n, 'lat':lat, 'lon': lon} 
+                        for (id,n,lat,lon) in r])    
+      # envoi de la réponse
+      headers = [('Content-Type','application/json')];
+      self.send(body,headers)
+      
   def send_ponctualite(self):
     return None
     
