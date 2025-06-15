@@ -1,11 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-Serveur web permettant d'afficher les courbes de résularité des TER
+Serveur web permettant de faire tourner le projet web C: carte interactive de location de vélos
 
-Correspond au corrigé du dernier exercice du TD3, §5.1 (TD3-s7.py)
-Contient une version basique du cache
-
-@author: Ecole Centrale de Lyon, 2024
+@author: Groupe C A2Bg, 2025
 """
 
 import http.server
@@ -150,48 +147,6 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
       headers = [('Content-Type','application/json')];
       self.send(body,headers)
       
-  def send_ponctualite(self):
-    return None
-    
-    """Retourner une réponse faisant référence au graphique de ponctualite
-
-    # création du curseur (la connexion a été créée par le programme principal)
-    c = conn.cursor()
-
-    # si pas de paramètre => erreur pas de région
-    if len(self.path_info) <= 1 or self.path_info[1] == '' :
-        # Région non spécifiée -> erreur 400 Bad Request
-        print ('Erreur pas de nom')
-        self.send_error(400)
-        return None
-    else:
-        # on récupère le nom de la région dans le 1er paramètre
-        region = self.path_info[1]
-        # On teste que la région demandée existe bien
-        c.execute("SELECT * FROM 'regions' WHERE nom=?",(region,))
-        r = c.fetchone()
-        if r == None:
-            # Région non trouvée -> erreur 404 Not Found
-            print ('Erreur nom')
-            self.send_error(404)    
-            return None
-    
-    # Test de la présence du fichier dans le cache
-    URL_graphique = 'courbes/ponctualite_{}.png'.format(region)
-    fichier = self.static_dir + '/{}'.format(URL_graphique)
-    if not os.path.exists(fichier):
-        print('creer_graphique : ', region)
-        self.creer_graphique (region, fichier)
-    
-    # réponse au format JSON
-    body = json.dumps({
-            'title': 'Régularité TER {}'.format(region), \
-            'img': '/{}'.format(URL_graphique) \
-             });
-     
-    # envoi de la réponse
-    headers = [('Content-Type','application/json')];
-    self.send(body,headers)"""
 
   def send_center(self):
     """Calculer et envoyer le centre géographique des stations depuis SQLite"""
@@ -227,48 +182,6 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
 
     except sqlite3.Error as e:
         self.send_error(500, f"Erreur SQLite : {e}")
-
-
-  def creer_graphique(self, region, nom_fichier):
-    """Générer un graphique de ponctualite et l'enregistrer dans le cache"""
-    
-    # création du curseur (la connexion a été créée par le programme principal)
-    c = conn.cursor()
-
-    # configuration du tracé
-    plt.figure(figsize=(18,6))
-    plt.ylim(80,100)
-    plt.grid(which='major', color='#888888', linestyle='-')
-    plt.grid(which='minor',axis='x', color='#888888', linestyle=':')
-    
-    ax = plt.subplot(111)
-    loc_major = pltd.YearLocator()
-    loc_minor = pltd.MonthLocator()
-    ax.xaxis.set_major_locator(loc_major)
-    ax.xaxis.set_minor_locator(loc_minor)
-    format_major = pltd.DateFormatter('%B %Y')
-    ax.xaxis.set_major_formatter(format_major)
-    ax.xaxis.set_tick_params(labelsize=10)
-    
-    # interrogation de la base de données pour les données de la région
-    c.execute("SELECT * FROM 'regularite-mensuelle-ter' WHERE Région=? ORDER BY Date", (region,))
-    r = c.fetchall()
-    # recupération de la date (1ère colonne) et transformation dans le format de pyplot
-    x = [pltd.date2num(dt.date(int(a[0][:4]),int(a[0][5:]),1)) for a in r if not a[6] == '']
-    # récupération de la régularité (7e colonne)
-    y = [float(a[6]) for a in r if not a[6] == '']
-    # tracé de la courbe
-    plt.plot_date(x,y,linewidth=1, linestyle='-', color='blue', label=region)
-        
-    # légendes
-    plt.legend(loc='lower right')
-    plt.title('Régularité des TER (en %) pour la Région {}'.format(region),fontsize=16)
-    plt.ylabel('% de régularité')
-    plt.xlabel('Date')
-    
-    # enregistrement de la courbe dans un fichier PNG
-    plt.savefig(nom_fichier)
-    plt.close()
     
 
   def send(self, body, headers=[]):
