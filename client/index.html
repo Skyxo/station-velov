@@ -6,90 +6,24 @@
     <link rel="stylesheet" type="text/css" href="leaflet.css" /> 
     <link rel="stylesheet" type="text/css" href="style.css"/>
     <meta charset="utf-8">
-    <style>
-        /* Styles existants */
-        #map { 
-            height: 85vh; /* 90% de la hauteur de la fenêtre */
-            width: 95%;   /* 95% de la largeur du conteneur */
-            margin: 0 auto; /* centrage horizontal */
-            position: relative;
-            z-index: 1;
-        }
-
-        /* Nouveaux styles pour la popup */
-        .station-popup {
-            min-width: 250px;
-        }
-
-        .station-popup h3 {
-            margin: 0 0 10px 0;
-            border-bottom: 1px solid #ccc;
-            padding-bottom: 5px;
-        }
-
-        .station-popup .info-row {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 5px;
-        }
-
-        .station-popup .label {
-            font-weight: bold;
-            color: #555;
-        }
-
-        .station-popup .value {
-            text-align: right;
-        }
-
-        .station-popup .address {
-            font-style: italic;
-            margin-bottom: 10px;
-            color: #666;
-        }
-
-        .station-popup .status-open {
-            color: #4CAF50; /* Vert */
-            font-weight: bold;
-        }
-
-        .station-popup .status-closed {
-            color: #F44336; /* Rouge */
-            font-weight: bold;
-        }
-
-        .bikes-available {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 10px;
-        }
-
-        .bike-type {
-            text-align: center;
-            padding: 5px;
-            border-radius: 4px;
-            background-color: #f5f5f5;
-            flex: 1;
-            margin: 0 2px;
-        }
-
-        .bike-count {
-            font-size: 1.2em;
-            font-weight: bold;
-        }
-
-        .last-update {
-            margin-top: 10px;
-            font-size: 0.8em;
-            color: #888;
-            text-align: right;
-        }
-    </style>
 </head>
 
 <body onload="initialize_page()">
     <h1>Stations Vélo'v</h1>
     <div id="map"></div>
+
+    <!-- formulaire GPS -->
+    <form id="route-form">
+        <div class="form-group">
+            <label for="start-address">Adresse de départ</label>
+            <input type="text" id="start-address" name="start" placeholder="Ex : 10 Rue de la République, Lyon" required>
+        </div>
+        <div class="form-group">
+            <label for="end-address">Adresse d'arrivée</label>
+            <input type="text" id="end-address" name="end" placeholder="Ex : 5 Place Bellecour, Lyon" required>
+        </div>
+        <button type="submit">Calculer l’itinéraire</button>
+    </form>
 </body>
 
 

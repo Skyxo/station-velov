@@ -70,4 +70,125 @@ a {
 a.delete:hover {
   color: red;
 }
-#map { height: 400px; width: 600px; }
+
+#route-form {
+  max-width: 600px;
+  margin: 0 auto 2rem;
+  padding: 1rem;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+#route-form .form-group {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 1rem;
+}
+
+#route-form label {
+  font-weight: bold;
+  margin-bottom: 0.3rem;
+}
+
+#route-form input[type="text"] {
+  padding: 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 1rem;
+}
+
+#route-form button {
+  display: block;
+  width: 100%;
+  padding: 0.6rem;
+  font-size: 1rem;
+  text-transform: uppercase;
+  background-color: #0078A8;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+#route-form button:hover {
+  background-color: #005f80;
+}
+
+
+#map { 
+    height: 85vh; /* 90% de la hauteur de la fenêtre */
+    width: 95%;   /* 95% de la largeur du conteneur */
+    margin: 0 auto; /* centrage horizontal */
+    position: relative;
+    z-index: 1;
+}
+
+/* Nouveaux styles pour la popup */
+.station-popup {
+    min-width: 250px;
+}
+
+.station-popup h3 {
+    margin: 0 0 10px 0;
+    border-bottom: 1px solid #ccc;
+    padding-bottom: 5px;
+}
+
+.station-popup .info-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 5px;
+}
+
+.station-popup .label {
+    font-weight: bold;
+    color: #555;
+}
+
+.station-popup .value {
+    text-align: right;
+}
+
+.station-popup .address {
+    font-style: italic;
+    margin-bottom: 10px;
+    color: #666;
+}
+
+.station-popup .status-open {
+    color: #4CAF50; /* Vert */
+    font-weight: bold;
+}
+
+.station-popup .status-closed {
+    color: #F44336; /* Rouge */
+    font-weight: bold;
+}
+
+.bikes-available {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 10px;
+}
+
+.bike-type {
+    text-align: center;
+    padding: 5px;
+    border-radius: 4px;
+    background-color: #f5f5f5;
+    flex: 1;
+    margin: 0 2px;
+}
+
+.bike-count {
+    font-size: 1.2em;
+    font-weight: bold;
+}
+
+.last-update {
+    margin-top: 10px;
+    font-size: 0.8em;
+    color: #888;
+    text-align: right;
+}
