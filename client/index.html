@@ -50,6 +50,15 @@
         shadowSize: [41, 41]
     });
 
+    const blueIcon = new L.Icon({
+        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png',
+        shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
+        iconSize: [25, 41],
+        iconAnchor: [12, 41],
+        popupAnchor: [1, -34],
+        shadowSize: [41, 41]
+    });
+
 
     // Fonction de géocodage via Nominatim
     async function geocode(address) {
@@ -67,6 +76,41 @@
         return [ parseFloat(data[0].lat), parseFloat(data[0].lon) ];
     }
 
+    // Charger toutes les stations une seule fois
+    let stations = [];
+    async function loadStations() {
+        const res = await fetch('/regions');
+        if (!res.ok) throw new Error('Impossible de charger les stations');
+        stations = await res.json();
+    }
+    loadStations();
+
+    // Calcul de la distance (haversine)
+    function haversine([lat1, lon1], [lat2, lon2]) {
+        const R = 6371e3; // mètres
+        const φ1 = lat1 * Math.PI/180;
+        const φ2 = lat2 * Math.PI/180;
+        const Δφ = (lat2-lat1) * Math.PI/180;
+        const Δλ = (lon2-lon1) * Math.PI/180;
+        const a = Math.sin(Δφ/2)**2 + Math.cos(φ1)*Math.cos(φ2)*Math.sin(Δλ/2)**2;
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        return R * c;
+    }
+
+    // Recherche de la station la plus proche
+    function findNearest(coord) {
+        let minDist = Infinity;
+        let nearest = null;
+        for (const s of stations) {
+            const d = haversine(coord, [s.lat, s.lon]);
+            if (d < minDist) {
+                minDist = d;
+                nearest = s;
+            }
+        }
+        return nearest;
+    }
+
 
     // Gestionnaire du formulaire
     document.getElementById('route-form').addEventListener('submit', async e => {
@@ -81,17 +125,33 @@
                 geocode(endAddr)
         ]);
 
-        // Ajout des marqueurs colorés
-        L.marker(startCoord, { icon: greenIcon })
-            .addTo(map)
-            .bindPopup('Départ')
-            .openPopup();
+        // Marker adresses
+        L.marker(startCoord, { icon: greenIcon }).addTo(map).bindPopup('Vous êtes ici').openPopup();
+        L.marker(endCoord,   { icon: redIcon   }).addTo(map).bindPopup('Arrivée prévue');
 
-        L.marker(endCoord, { icon: redIcon })
-            .addTo(map)
-            .bindPopup('Arrivée');
+        // Station la plus proche de chaque extrémité
+        const stStart = findNearest(startCoord);
+        const stEnd   = findNearest(endCoord);
 
-        // TODO : récupérer les stations proches et tracer les L.polyline
+        // Supprime les marqueurs de ces stations préexistants
+        map.eachLayer(layer => {
+            if (layer instanceof L.Marker && (layer.stationId === stStart.idstation || layer.stationId === stEnd.idstation)) {
+                map.removeLayer(layer);
+            }
+        });
+
+        // Ajoute les nouveaux marqueurs bleu avec popup buildée
+        [ {info: stStart, label: 'Station de départ'}, {info: stEnd, label: 'Station d’arrivée'} ]
+            .forEach(({info, label}) => {
+                const m = L.marker([info.lat, info.lon], { icon: blueIcon }).addTo(map);
+                fetch('/station/' + info.idstation)
+                    .then(res => res.json())
+                    .then(station => m.bindPopup(buildStationPopupContent(station, label)).openPopup())
+                    .catch(err => console.error(err));
+            });
+
+
+        // TODO : tracer les L.polyline
         } catch (err) {
             alert(err.message);
             console.error(err);
@@ -132,7 +192,7 @@
     }
 
 
-    // Fonction modifiée pour charger les marqueurs avec leurs IDs
+    // charger les marqueurs avec leurs IDs
     function load_data () {
         var xhr = new XMLHttpRequest();
         xhr.onload = function() {
@@ -162,59 +222,70 @@
         xhr.send();
     }
 
-    function OnMarkerClick (e) {
-        var xhr = new XMLHttpRequest();
-        xhr.onload = function() {
-          if (this.status != 200) {
-            console.error("Erreur lors de la récupération des données de la station");
-            return;
-          }
+
+
+
+
+
+    
+    // Construit le HTML complet d’une popup de station.
+    // @param {Object} station  Objet tel que renvoyé par /station/{id}
+    // @param {string} [label]  Texte à préfixer au nom (ex. « Station de départ »)
+    // @returns {string} HTML
+    function buildStationPopupContent(station, label = station.nom) {
+        // Construction du HTML pour la popup
+        var content = '<div class="station-popup">';
           
-          var station = JSON.parse(this.responseText);
-          
-          // Construction du HTML pour la popup
-          var content = '<div class="station-popup">';
-          
-          // En-tête avec nom et statut
-          content += '<h3>' + station.nom + '</h3>';
-          content += '<div class="address">' + formatAddress(station) + '</div>';
-          
-          // Statut de la station (ouverte/fermée)
-          var statusClass = station.status === 'OPEN' ? 'status-open' : 'status-closed';
-          var statusText = station.status === 'OPEN' ? 'Ouverte' : 'Fermée';
-          content += '<div class="info-row"><span class="label">Statut :</span> <span class="value ' + statusClass + '">' + statusText + '</span></div>';
-          
-          // Capacité totale
-          content += '<div class="info-row"><span class="label">Capacité :</span> <span class="value">' + station.capacity + ' bornettes</span></div>';
-          
-          // Places disponibles et vélos disponibles
-          content += '<div class="info-row"><span class="label">Places libres :</span> <span class="value">' + station.stands + '</span></div>';
-          content += '<div class="info-row"><span class="label">Vélos disponibles :</span> <span class="value">' + station.bikes + '</span></div>';
-          
-          // Types de vélos disponibles
-          content += '<div class="bikes-available">';
-          content += '<div class="bike-type"><div class="bike-count">' + station.electricalBikes + '</div><div>Électriques</div></div>';
-          content += '<div class="bike-type"><div class="bike-count">' + station.mechanicalBikes + '</div><div>Mécaniques</div></div>';
-          content += '</div>';
-          
-          // Information bonus
-          if (station.stationbonus === 'oui') {
-            content += '<div class="info-row"><span class="label">Station bonus</span> <span class="value">✓</span></div>';
-          }
-          
-          // Dernière mise à jour
-          content += '<div class="last-update">Dernière mise à jour : ' + formatDate(station.horodate) + '</div>';
-          
-          content += '</div>';
-          
-          // Remplacer le contenu de la popup
-          e.target.getPopup().setContent(content);
-          e.target.getPopup().update();
-        };
-        
-        // Nouvelle route pour récupérer les détails de la station
-        xhr.open('GET', '/station/' + e.target.stationId, true);
-        xhr.send();
+        // En-tête avec nom et statut
+        content += '<h3>' + station.nom + '</h3>';
+        content += '<div class="address">' + formatAddress(station) + '</div>';
+
+        // Statut de la station (ouverte/fermée)
+        var statusClass = station.status === 'OPEN' ? 'status-open' : 'status-closed';
+        var statusText = station.status === 'OPEN' ? 'Ouverte' : 'Fermée';
+        content += '<div class="info-row"><span class="label">Statut :</span> <span class="value ' + statusClass + '">' + statusText + '</span></div>';
+
+        // Capacité totale
+        content += '<div class="info-row"><span class="label">Capacité :</span> <span class="value">' + station.capacity + ' bornettes</span></div>';
+
+        // Places disponibles et vélos disponibles
+        content += '<div class="info-row"><span class="label">Places libres :</span> <span class="value">' + station.stands + '</span></div>';
+        content += '<div class="info-row"><span class="label">Vélos disponibles :</span> <span class="value">' + station.bikes + '</span></div>';
+
+        // Types de vélos disponibles
+        content += '<div class="bikes-available">';
+        content += '<div class="bike-type"><div class="bike-count">' + station.electricalBikes + '</div><div>Électriques</div></div>';
+        content += '<div class="bike-type"><div class="bike-count">' + station.mechanicalBikes + '</div><div>Mécaniques</div></div>';
+        content += '</div>';
+
+        // Information bonus
+        if (station.stationbonus === 'oui') {
+        content += '<div class="info-row"><span class="label">Station bonus</span> <span class="value">✓</span></div>';
+        }
+
+        // Dernière mise à jour
+        content += '<div class="last-update">Dernière mise à jour : ' + formatDate(station.horodate) + '</div>';
+        content += '</div>';
+
+        return content;
+    }
+
+
+    function OnMarkerClick(e) {
+        const id = e.target.stationId;
+        fetch('/station/' + id)
+            .then(res => res.json())
+            .then(station => {
+                // Remplace le contenu de la popup
+                e.target.getPopup()
+                    .setContent(buildStationPopupContent(station))
+                    .update();
+            })
+            .catch(err => console.error(err));
+
+            // Nouvelle route pour récupérer les détails de la station
+            xhr.open('GET', '/station/' + e.target.stationId, true);
+            xhr.send();
     }
 
     // Fonction pour formater l'adresse
