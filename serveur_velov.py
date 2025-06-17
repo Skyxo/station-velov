@@ -19,6 +19,11 @@ import matplotlib.dates as pltd
 
 from datetime import datetime
 
+# on s’assure que le dossier client/courbes existe
+STATIC_DIR = 'client'
+COURBES_DIR = os.path.join(STATIC_DIR, 'courbes')
+os.makedirs(COURBES_DIR, exist_ok=True)
+
 
 # numéro du port TCP utilisé par le serveur
 port_serveur = 8080
@@ -191,8 +196,22 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
     ax.set_ylabel('Nombre')
     ax.legend()
     fig.autofmt_xdate()
-    # optionnel : formater l’axe x
+    #formater l’axe x
     ax.xaxis.set_major_formatter(pltd.DateFormatter('%d/%m %H:%M'))
+    
+    
+    # fonction utilitaire pour passer "YYYY-MM-DD HH:MM:SS" -> "YYYY_MM_DD_HH_MM_SS"
+    def sanitize(dt_str):
+        return dt_str.replace('-', '_').replace(' ', '_').replace(':', '_')
+    
+    #s_part = sanitize(start) if start else 'all'
+    #e_part = sanitize(end)   if end   else 'all'
+    
+    filename = f'history_{station_id}' #__{s_part}__{e_part}.png'
+    filepath = os.path.join(COURBES_DIR, filename)
+    
+    # on enregistre la figure
+    fig.savefig(filepath, format='png', bbox_inches='tight')
 
     # écrire dans un buffer mémoire
     buf = io.BytesIO()

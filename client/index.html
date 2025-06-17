@@ -341,10 +341,30 @@
         content += '<div class="last-update">Dernière mise à jour : ' + formatDate(station.horodate) + '</div>';
         content += '</div>';
 
-        content += '<div style="margin-top:0.5em;">'
-            +   '<img src="/history_png/'+station.idstation+'" '
-            +        'style="display:block; width:100%;">'
-            + '</div>';
+
+        content += `
+            <div style="margin-top: 0.5em;">
+              <div>
+                Début : 
+                <input type="range" id="startRange-${station.idstation}" style="width:45%;">
+                <span id="startLabel-${station.idstation}"></span>
+              </div>
+              <div style="margin-top:0.3em;">
+                Fin :   
+                <input type="range" id="endRange-${station.idstation}"   style="width:45%;">
+                <span id="endLabel-${station.idstation}"></span>
+              </div>
+              <div style="margin-top:0.5em;">
+                <button onclick="loadHistoryImg(${station.idstation})">
+                  Afficher la courbe
+                </button>
+              </div>
+              <div style="margin-top:0.5em;">
+                <img id="img-${station.idstation}" style="display:block; width:100%;" />
+              </div>
+            </div>
+          `;
+
         return content;
     }
 
@@ -354,16 +374,12 @@
         fetch('/station/' + id)
             .then(res => res.json())
             .then(station => {
-                // Remplace le contenu de la popup
-                e.target.getPopup()
-                    .setContent(buildStationPopupContent(station))
-                    .update();
+              const popup = e.target.getPopup();
+              popup.setContent(buildStationPopupContent(station))
+                   .update();
+              initRanges(id);
             })
             .catch(err => console.error(err));
-
-            // Nouvelle route pour récupérer les détails de la station
-            xhr.open('GET', '/station/' + e.target.stationId, true);
-            xhr.send();
     }
 
     // Fonction pour formater l'adresse
@@ -401,5 +417,57 @@
         img.src = '/history_png/' + id + '?' + params.toString();
     }
 
+
+
+    /**
+     * Initialise deux input[type=range] pour choisir la plage [minTs…maxTs]
+     * et affiche leur valeur dans les <span>.
+     */
+    function initRanges(id) {
+      const minTs = Date.parse('2024-10-25T00:00:00');
+      const maxTs = Date.parse('2024-10-29T23:59:59');
+      const sr = document.getElementById('startRange-'+id);
+      const er = document.getElementById('endRange-'+id);
+      const sl = document.getElementById('startLabel-'+id);
+      const el = document.getElementById('endLabel-'+id);
+
+      // config des sliders
+      [sr, er].forEach(inp => {
+        inp.min   = minTs;
+        inp.max   = maxTs;
+        inp.step  = 60 * 1000;    // pas de 1 minute
+      });
+      sr.value = minTs;
+      er.value = maxTs;
+
+      // mettre à jour l’affichage
+      function updateLabels() {
+        sl.textContent = new Date(+sr.value).toLocaleString('fr-FR');
+        el.textContent = new Date(+er.value).toLocaleString('fr-FR');
+      }
+      sr.addEventListener('input', updateLabels);
+      er.addEventListener('input', updateLabels);
+      updateLabels();
+    }
+
+    /**
+     * Lit les valeurs des deux ranges, formate en "YYYY-MM-DD HH:MM:SS"
+     * et recharge l'<img> avec la nouvelle URL.
+     */
+    function loadHistoryImg(id) {
+      const sr = document.getElementById('startRange-'+id);
+      const er = document.getElementById('endRange-'+id);
+
+      const fmt = ts => new Date(+ts)
+        .toISOString().slice(0,19).replace('T',' ');
+
+      const params = new URLSearchParams({
+        start: fmt(sr.value),
+        end:   fmt(er.value)
+      });
+
+      document.getElementById('img-'+id)
+              .src = `/history_png/${id}?${params.toString()}`;
+    }
 
 </script>
