@@ -301,12 +301,6 @@
         xhr.open('GET', '/regions', true);
         xhr.send();
     }
-
-
-
-
-
-
     
     // Construit le HTML complet d’une popup de station.
     // @param {Object} station  Objet tel que renvoyé par /station/{id}
@@ -347,6 +341,10 @@
         content += '<div class="last-update">Dernière mise à jour : ' + formatDate(station.horodate) + '</div>';
         content += '</div>';
 
+        content += '<div style="margin-top:0.5em;">'
+            +   '<img src="/history_png/'+station.idstation+'" '
+            +        'style="display:block; width:100%;">'
+            + '</div>';
         return content;
     }
 
@@ -390,4 +388,18 @@
             return dateStr;
         }
     }
+
+    function loadHistoryImg(id) {
+        const startEl = document.getElementById('start-'+id);
+        const endEl   = document.getElementById('end-'+id);
+        const params  = new URLSearchParams();
+
+        if (startEl.value) params.set('start', startEl.value.replace('T',' '));
+        if (endEl.value)   params.set('end',   endEl.value.replace('T',' '));
+
+        const img = document.getElementById('img-'+id);
+        img.src = '/history_png/' + id + '?' + params.toString();
+    }
+
+
 </script>
