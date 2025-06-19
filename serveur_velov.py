@@ -319,31 +319,28 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
 
 
   def send(self, body, headers=[]):
-      """Envoyer la réponse au client avec le corps et les en-têtes fournis"""
-      # Vérification et encodage du corps de la réponse
-      if body is None:
-          body = ""  # Définit un contenu par défaut si aucun corps n'est fourni
-      try:
-          encoded = bytes(body, 'UTF-8')  # Encodage en UTF-8
-      except Exception as e:
-          print(f"Erreur lors de l'encodage du corps : {e}")
-          encoded = b""  # Définit un corps vide en cas d'erreur
+      """
+      Envoyer la réponse au client.
+      body peut être bytes ou str.
+      headers : liste de tuples (clé, valeur).
+      """
+      # Encodage du corps de la réponse
+      if isinstance(body, (bytes, bytearray)):
+          encoded = body  # Si body est déjà en bytes, on l'utilise tel quel
+      else:
+          encoded = body.encode('utf-8')  # Sinon, on encode en UTF-8
 
       # Envoi de la ligne de statut
       self.send_response(200)
 
       # Envoi des en-têtes
-      for header in headers:
-          self.send_header(*header)
-      self.send_header('Content-Length', len(encoded))  # Taille du corps
+      for k, v in headers:
+          self.send_header(k, v)
+      self.send_header('Content-Length', str(len(encoded)))  # Taille du contenu
       self.end_headers()
 
       # Envoi du corps de la réponse
-      try:
-          self.wfile.write(encoded)
-      except Exception as e:
-          print(f"Erreur lors de l'envoi du corps de la réponse : {e}")
-
+      self.wfile.write(encoded)
 
   def init_params(self):
     """Analyse la requête pour initialiser nos paramètres"""
