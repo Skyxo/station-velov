@@ -1,7 +1,8 @@
 ﻿/* fond de page */
 body {
-  background-image: linear-gradient(0deg, rgba(102, 255, 153), white, white, white);
-  background-size: 100%;
+  background-image: url("images/velo1.jpg");
+  background-size: 20%;
+  background-position: bottom left;
   background-repeat: no-repeat;
   color: white;
   height: 100vh;
@@ -72,7 +73,7 @@ a.delete:hover {
 }
 
 #route-form {
-  max-width: 600px;
+  max-width: 400px;
   margin: 0 auto 2rem;
   padding: 1rem;
   background: #fff;
@@ -104,7 +105,8 @@ a.delete:hover {
   padding: 0.6rem;
   font-size: 1rem;
   text-transform: uppercase;
-  background-color: #0078A8;
+  box-shadow: 3px 3px 3px rgba(0, 102, 51, 0.3);
+  background-color: rgba(102, 255, 153);
   color: #fff;
   border: none;
   border-radius: 4px;
@@ -117,7 +119,7 @@ a.delete:hover {
 
 
 #map { 
-    height: 85vh; /* 90% de la hauteur de la fenêtre */
+    height: 60vh; /* 90% de la hauteur de la fenêtre */
     width: 95%;   /* 95% de la largeur du conteneur */
     margin: 0 auto; /* centrage horizontal */
     position: relative;
