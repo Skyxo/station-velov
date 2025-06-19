@@ -1,29 +1,35 @@
 ﻿/* fond de page */
-body {
-  background-size: 20%;
-  background-repeat: no-repeat;
-  color: white;
-  height: 100vh;
-  margin: 0;
-  /* pour éviter l'ascenseur */
-  border: 1px solid transparent;
-  box-sizing: border-box;
+html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
 }
 
-/* bandeau de titre */
-h1 { 
-  color: white;
-  border: none;
-  box-shadow: none;
-  background-color: rgba(102, 255, 153);
-  border-top: 3px solid rgba(255,255,255,0.6);
-  border-bottom: 3px solid rgba(255,255,255,0.6);
-  margin-top: 0.5em;
-  text-shadow: 3px 3px 3px rgba(0, 102, 51, 0.5);
-  text-align: center;
-  padding-top: 0.5em;
-  padding-bottom: 0.5em;
-  margin-bottom: 0em;
+/* Style pour le header */
+header {
+    background-color: rgba(102, 255, 153);
+    border-bottom: 3px solid rgba(255, 255, 255, 0.6);
+    padding: 10px 0;
+    width: 100%;
+    height: 60px; /* Hauteur fixe pour le header */
+    box-sizing: border-box;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 1000;
+}
+
+/* Style pour le titre */
+header h1 {
+    margin: 0;
+    font-size: 1.8rem;
+    text-align: center;
+    color: white;
+    text-shadow: 3px 3px 3px rgba(0, 102, 51, 0.5);
+    flex-grow: 1;
+    text-align: center;
 }
 
 /* contenu de la page */
@@ -67,10 +73,34 @@ a {
 }
 */
 
+
+
+#filters {
+    display: flex;
+    gap: 10px;
+}
+
+/* Boutons de filtre */
+#filters button {
+    background-color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 12px;
+    cursor: pointer;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    display: flex;
+    align-items: center;
+    font-weight: bold;
+}
+
 #filters button img {
-    height: 1.2em;
-    width: auto;    
+    height: 20px;
+    width: auto;
     vertical-align: middle;
+}
+
+#filters button:hover {
+    background-color: #f0f0f0;
 }
 
 a.delete:hover {
@@ -122,22 +152,24 @@ a.delete:hover {
   background-color: #005f80;
 }
 
-
-#map { 
-    height: 90%; /* 90% de la hauteur de la fenêtre */
-    width: 95%;   /* 95% de la largeur du conteneur */
-    margin: 0 auto; /* centrage horizontal */
-    position: relative;
-    z-index: 1;
+#map {
+    position: absolute;
+    top: 60px; /* Doit correspondre à la hauteur du header */
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: calc(100% - 60px); /* Calculer la hauteur restante */
+    z-index: 0;
 }
-
 #velo_margot {
     width: 100%;
     max-width: 350px;
     height: auto;        /* garde les proportions */
     display: block;
     margin: 0 auto;
-    anchor: bottom;
+    position: absolute;
+    bottom: 0;
 }
 
 /* Modification du style du formulaire pour l'adapter au panneau */
@@ -149,6 +181,16 @@ a.delete:hover {
     max-width: none;
     overflow-y: auto;
     flex-grow: 1;
+}
+
+/* Barre de navigation */
+.top-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    padding: 0 20px; /* Ajustez le padding pour les bords */
+    box-sizing: border-box;
 }
 
 /* Styles pour le panneau latéral */
@@ -172,32 +214,15 @@ a.delete:hover {
     right: 0; /* Affiché quand la classe 'active' est présente */
 }
 
-.panel-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 15px;
-    background-color:rgba(102, 255, 153);
-    color: white;
-}
-
-.panel-header h2 {
-    margin: 0;
-    font-size: 1.5rem;
-}
 
 /* Bouton pour afficher le panneau */
 .toggle-button {
-    position: absolute;
-    top: 35px;
-    right: 10px;
-    z-index: 900;
     background-color: white;
     border: none;
     border-radius: 4px;
     padding: 8px 12px;
     cursor: pointer;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
     display: flex;
     align-items: center;
     font-weight: bold;
@@ -295,4 +320,270 @@ a.delete:hover {
     font-size: 0.8em;
     color: #888;
     text-align: right;
+}
+
+.graph-popup-container {
+    max-width: 600px !important;
+    min-width: 400px;
+}
+
+.graph-popup {
+    padding: 10px 5px;
+}
+
+.graph-popup h3 {
+    margin: 0 0 10px 0;
+    color: #333;
+    border-bottom: 1px solid #ddd;
+    padding-bottom: 5px;
+}
+
+.graph-popup .date-info {
+    font-size: 12px;
+    color: #777;
+    margin-bottom: 10px;
+}
+
+.graph-popup img {
+    border: 1px solid #eee;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+/* Style pour les marqueurs proportionnels */
+.custom-div-icon {
+    background: none !important;
+    border: none !important;
+}
+
+.proportional-marker-container {
+    position: relative;
+    width: 45px;
+    height: 45px;
+}
+
+.mech-icon, .elec-icon {
+    background-repeat: no-repeat;
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+/* Modification du panneau d'évolution pour utiliser flexbox */
+#graph-panel {
+    position: fixed;
+    bottom: -80vh; /* Commence hors de l'écran par le bas */
+    left: 2%; /* Assurez-vous que c'est bien 2% pour coller au bord gauche */
+    width: 500px;
+    max-height: 80vh; /* 80% de la hauteur de l'écran */
+    background: white;
+    box-shadow: 0 -2px 10px rgba(0,0,0,0.2);
+    border-radius: 12px 12px 0 0; /* Coins arrondis en haut */
+    transition: bottom 0.4s ease;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 0; /* Supprime tout padding interne */
+}
+
+#graph-panel.active {
+    bottom: 0; /* Glisse vers le haut pour devenir visible */
+}
+
+.bottom-panel {
+    z-index: 1000;
+}
+
+/* Styles pour l'en-tête du panneau */
+/* En-tête fixe sans scrollbar */
+.panel-header {
+    flex: 0 0 auto; /* Taille fixe, ne rétrécit pas, ne grandit pas */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: rgba(102, 255, 153, 0.9);
+    padding: 12px 15px;
+    border-radius: 12px 12px 0 0;
+    z-index: 2; /* Pour rester au-dessus du contenu défilant */
+}
+
+.panel-header h2 {
+    margin: 0;
+    font-size: 1.2rem;
+    color: #333;
+}
+
+.close-button {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #333;
+}
+
+/* Styles pour le contenu du panneau */
+.panel-content {
+    flex: 1 1 auto; /* Prend tout l'espace disponible */
+    overflow-y: auto; /* Scrollbar uniquement si nécessaire */
+    overflow-x: hidden; /* Pas de scrollbar horizontale */
+    padding: 15px;
+    
+    /* Pour éviter les problèmes de marge qui dépassent */
+    box-sizing: border-box;
+}
+
+#graph-station-info {
+    font-size: 1.1rem;
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
+.date-info {
+    margin-bottom: 15px;
+    color: #666;
+    font-size: 0.9rem;
+}
+
+.graph-image-container {
+    background-color: #f9f9f9;
+    padding: 10px;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    margin-bottom: 15px;
+}
+
+/* Styles pour les sélecteurs de date */
+.date-selector {
+    margin-top: 12px;
+    background-color: #f9f9f9;
+    padding: 10px;
+    border-radius: 5px;
+    box-shadow: inset 0 0 3px rgba(0,0,0,0.1);
+}
+
+.date-group {
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+}
+
+.date-group label {
+    font-weight: bold;
+    width: 40px;
+    color: #333;
+}
+
+.date-inputs {
+    flex: 1;
+    display: flex;
+    gap: 5px;
+}
+
+.date-select {
+    flex: 2;
+    padding: 5px;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    font-size: 13px;
+}
+
+.time-select {
+    flex: 1;
+    padding: 5px;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    font-size: 13px;
+}
+
+.graph-button {
+    margin-top: 8px;
+    width: 100%;
+    padding: 8px;
+    background-color: rgba(102, 255, 153, 0.9);
+    border: none;
+    border-radius: 4px;
+    color: #333;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.graph-button:hover {
+    background-color: rgba(82, 235, 133, 0.9);
+}
+
+/* Styles pour l'affichage des dates dans le panneau de graphique */
+.date-range {
+    line-height: 1.5;
+    margin-bottom: 12px;
+    color: #555;
+}
+
+.date-value {
+    font-weight: bold;
+    color: #333;
+}
+
+/* Styles pour les options du graphique */
+.graph-options {
+    background-color: #f5f5f5;
+    padding: 10px 15px;
+    border-radius: 5px;
+    margin-bottom: 15px;
+}
+
+.graph-options h4 {
+    margin-top: 0;
+    margin-bottom: 8px;
+    font-size: 14px;
+    color: #444;
+}
+
+.graph-options-checkboxes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.graph-options-checkboxes label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 13px;
+    color: #333;
+    cursor: pointer;
+}
+
+.update-button {
+    background-color: #4caf50;
+    color: white;
+    border: none;
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-size: 13px;
+    cursor: pointer;
+    margin-top: 8px;
+}
+
+.update-button:hover {
+    background-color: #45a049;
+}
+
+/* Style pour les marqueurs à taille variable */
+.custom-div-icon {
+    background: none !important;
+    border: none !important;
+}
+
+/* Ajout d'une ombre pour mieux distinguer les grandes icônes */
+.proportional-marker-container {
+    filter: drop-shadow(0 2px 2px rgba(0,0,0,0.3));
+}
+
+/* Effet de surbrillance au survol pour une meilleure UX */
+.leaflet-marker-icon:hover {
+    filter: brightness(1.1);
+    transition: filter 0.3s ease;
 }

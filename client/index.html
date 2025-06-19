@@ -30,17 +30,20 @@
 
 <body onload="initialize_page()">
     <header>
-        <h1>Stations Vélo'v</h1>
-        <div id="filters" style="margin-top:0.5em;">
-            <button onclick="showAll()">Toutes</button>
-            <button onclick="showElectric()"><img src ="images/lightning.png"></button>
-            <button onclick="showMechanical()"><img src ="images/jambe.png"></button>
-        </div>
+        <nav class="top-controls">
+            <div id="filters">
+                <button onclick="showAll()">Toutes</button>
+                <button onclick="showElectric()"><img src="images/lightning.png" alt="Vélos électriques"></button>
+                <button onclick="showMechanical()"><img src="images/jambe.png" alt="Vélos mécaniques"></button>
+                <button onclick="showEmpty()"><img src="images/empty.png" alt="Stations vides" style="height:20px;"></button>
+                <button onclick="showClosed()"><img src="images/closed.png" alt="Stations fermées" style="height:20px;"></button>
+            </div>
+            <h1>Stations Vélo'v</h1>
+            <button id="toggle-route-form" class="toggle-button">
+                <span class="toggle-icon">&#9776;</span> Itinéraire
+            </button>
+        </nav>
     </header>
-
-    <button id="toggle-route-form" class="toggle-button">
-        <span class="toggle-icon">&#9776;</span> Itinéraire
-    </button>
 
     <div id="map"></div>
 
@@ -66,66 +69,343 @@
         </form>
     </div>
 
-        <script>
-            // Gestion du bouton toggle pour afficher/masquer le formulaire
-            document.getElementById('toggle-route-form').addEventListener('click', () => {
-                const panel = document.getElementById('route-panel');
-                panel.classList.toggle('visible');
-            });
+    <!-- Panneau pour afficher les graphiques (glisse depuis le bas à gauche) -->
+    <div id="graph-panel" class="bottom-panel">
+        <div class="panel-header">
+            <h2>Évolution de la station</h2>
+            <button id="close-graph-panel" class="close-button">&times;</button>
+        </div>
+        <div class="panel-content">
+            <div id="graph-station-info"></div>
+            <div id="graph-date-info" class="date-info"></div>
+            
+            <div class="graph-image-container">
+                <img id="graph-image" alt="Graphique d'occupation" style="width:100%; height:auto;">
+            </div>
+            
+            <!-- Ajout des options de séries à afficher -->
+            <div class="graph-options">
+                <h4>Données à afficher :</h4>
+                <div class="graph-options-checkboxes">
+                    <label><input type="checkbox" id="show-total" checked> Vélos totaux</label>
+                    <label><input type="checkbox" id="show-stands" checked> Places libres</label>
+                    <label><input type="checkbox" id="show-mechanical" checked> Vélos mécaniques</label>
+                    <label><input type="checkbox" id="show-electric" checked> Vélos électriques</label>
+                </div>
+                <button id="update-graph" class="update-button">Mettre à jour le graphique</button>
+            </div>
+        </div>
+    </div>
 
-            // Gestion du bouton de fermeture du panneau
-            document.getElementById('close-panel').addEventListener('click', () => {
-                const panel = document.getElementById('route-panel');
-                panel.classList.remove('visible');
-            });
-        </script>
 </body>
 
 
 
 <script>
+    // Ajouter ces variables globales en haut du script
+    var maxBikesCount = 0; // Maximum pour tous vélos confondus
+    var maxElectricCount = 0; // Maximum pour les vélos électriques
+    var maxMechanicalCount = 0; // Maximum pour les vélos mécaniques
+    var currentDisplayMode = 'all'; // Mode d'affichage actuel ('all', 'electric', 'mechanical')
+    
     var map; // Déclarer la variable map globalement
     window.routeSegments = []; // Sert à stocker les routes GPS (éventuellemnt pour les enlever si on modifie le parcours)
     window.stationMarkers = [];  // contient { marker: L.Marker, data: station }
 
+    // Icônes pour les différents types de vélos
 
-
-    // Définition de markers colorées
-    const redIcon = new L.Icon({
-        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
-        shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
-        iconSize: [25, 41],
-        iconAnchor: [12, 41],
-        popupAnchor: [1, -34],
-        shadowSize: [41, 41]
+    const closedStationIcon = L.icon({
+        iconUrl: 'images/marker-icon_v_closed.png',
+        iconSize: [45, 45],
+        iconAnchor: [22, 45],
+        popupAnchor: [0, -45]
     });
 
-    const greenIcon = new L.Icon({
-        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png',
-        shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
-        iconSize: [25, 41],
-        iconAnchor: [12, 41],
-        popupAnchor: [1, -34],
-        shadowSize: [41, 41]
+    const emptyStationIcon = L.icon({
+        iconUrl: 'images/marker-icon_v_empty.png',
+        iconSize: [45, 45],
+        iconAnchor: [22, 45],
+        popupAnchor: [0, -45]
     });
 
-    const blueIcon = new L.Icon({
-        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png',
-        shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
-        iconSize: [25, 41],
-        iconAnchor: [12, 41],
-        popupAnchor: [1, -34],
-        shadowSize: [41, 41]
+    const electricBikeIcon = L.icon({
+        iconUrl: 'images/marker-icon_v_elec.png',
+        iconSize: [45, 45],
+        iconAnchor: [22, 45],
+        popupAnchor: [0, -45]
     });
 
-    // Icône « standard » pour toutes les stations
+    const mechanicalBikeIcon = L.icon({
+        iconUrl: 'images/marker-icon_v_meca.png',
+        iconSize: [45, 45],
+        iconAnchor: [22, 45],
+        popupAnchor: [0, -45]
+    });
+
     const customIcon = L.icon({
         iconUrl: 'images/marker-icon_v.png',
-        iconSize:   [45, 45],
+        iconSize: [45, 45],
         iconAnchor: [22, 45],
-        popupAnchor:[ 0, -45]
+        popupAnchor: [0, -45]
     });
 
+
+
+    function calculateIconSize(station, mode) {
+        // Taille minimale et maximale pour les icônes (en pixels)
+        const minSize = 30;
+        const maxSize = 60;
+        
+        let bikeCount = 0;
+        let maxCount = 0;
+        
+        // Sélectionner le bon compteur en fonction du mode
+        switch (mode) {
+            case 'electric':
+                bikeCount = station.electricalBikes || 0;
+                maxCount = maxElectricCount;
+                break;
+            case 'mechanical':
+                bikeCount = station.mechanicalBikes || 0;
+                maxCount = maxMechanicalCount;
+                break;
+            case 'empty':
+                // Pour le mode empty, on utilise les places libres (stands) comme métrique
+                bikeCount = station.stands || 0;
+                maxCount = Math.max(...window.stations.map(s => s.stands || 0));
+                break;
+            case 'closed':
+                // Pour les stations fermées, on utilise la capacité totale comme métrique
+                bikeCount = station.capacity || station.nbbornettes || 0;
+                maxCount = Math.max(...window.stations.map(s => s.capacity || s.nbbornettes || 0));
+                break;
+            case 'all':
+            default:
+                bikeCount = station.bikes || 0;
+                maxCount = maxBikesCount;
+        }
+        
+        // Si aucun vélo disponible ou pas de maximum, taille minimale
+        if (bikeCount <= 0 || maxCount <= 0) {
+            return [minSize, minSize];
+        }
+        
+        // Calculer la taille proportionnelle par rapport au maximum du mode actuel
+        const sizeRatio = bikeCount / maxCount;
+        const size = Math.max(minSize, Math.min(maxSize, minSize + (maxSize - minSize) * sizeRatio));
+        
+        return [size, size];
+    }
+    
+
+
+    /**
+     * Crée une icône Leaflet avec une taille variable selon le nombre de vélos
+     * @param {object} station - Données de la station
+     * @param {string} iconUrl - URL de l'image d'icône
+     * @param {string} [mode] - Mode d'affichage ('all', 'electric', 'mechanical')
+     * @returns {L.Icon} - Icône Leaflet configurée
+     */
+    function createDynamicIcon(station, iconUrl, mode = currentDisplayMode) {
+        const iconSize = calculateIconSize(station, mode);
+        
+        return L.icon({
+            iconUrl: iconUrl,
+            iconSize: iconSize,
+            iconAnchor: [iconSize[0]/2, iconSize[1]],
+            popupAnchor: [0, -iconSize[1]]
+        });
+    }
+
+
+    /**
+     * Crée une icône composite avec une taille variable selon le nombre de vélos
+     * @param {object} station - Données de la station
+     * @param {string} [mode] - Mode d'affichage ('all', 'electric', 'mechanical')
+     * @returns {L.DivIcon} - Icône Leaflet composite
+     */
+    function createProportionalDynamicIcon(station, mode = currentDisplayMode) {
+        const electricCount = station.electricalBikes || 0;
+        const mechanicalCount = station.mechanicalBikes || 0;
+        
+        // Calculer la taille de l'icône en fonction du mode actuel
+        const iconSize = calculateIconSize(station, mode);
+        
+        // Calculer la proportion de vélos électriques
+        const totalBikes = electricCount + mechanicalCount;
+        const electricRatio = totalBikes > 0 ? electricCount / totalBikes : 0;
+        
+        // Créer un élément div pour contenir les deux icônes superposées
+        const container = document.createElement('div');
+        container.className = 'proportional-marker-container';
+        container.style.position = 'relative';
+        container.style.width = `${iconSize[0]}px`;
+        container.style.height = `${iconSize[1]}px`;
+        
+        // Élément pour l'icône mécanique (arrière-plan complet)
+        const mechDiv = document.createElement('div');
+        mechDiv.className = 'mech-icon';
+        mechDiv.style.position = 'absolute';
+        mechDiv.style.top = '0';
+        mechDiv.style.left = '0';
+        mechDiv.style.width = `${iconSize[0]}px`;
+        mechDiv.style.height = `${iconSize[1]}px`;
+        mechDiv.style.backgroundImage = 'url(images/marker-icon_v_meca.png)';
+        mechDiv.style.backgroundSize = 'cover';
+        
+        // Élément pour l'icône électrique (partie gauche seulement)
+        const elecDiv = document.createElement('div');
+        elecDiv.className = 'elec-icon';
+        elecDiv.style.position = 'absolute';
+        elecDiv.style.top = '0';
+        elecDiv.style.left = '0';
+        elecDiv.style.width = Math.round(iconSize[0] * electricRatio) + 'px'; // Rogner à la proportion
+        elecDiv.style.height = `${iconSize[1]}px`;
+        elecDiv.style.backgroundImage = 'url(images/marker-icon_v_elec.png)';
+        elecDiv.style.backgroundSize = 'cover';
+        elecDiv.style.overflow = 'hidden';
+        
+        // Assembler les éléments
+        container.appendChild(mechDiv);
+        container.appendChild(elecDiv);
+        
+        // Créer l'icône Leaflet avec le HTML personnalisé
+        return L.divIcon({
+            html: container,
+            className: 'custom-div-icon',
+            iconSize: iconSize,
+            iconAnchor: [iconSize[0]/2, iconSize[1]],
+            popupAnchor: [0, -iconSize[1]]
+        });
+    }
+
+
+    /**
+     * Crée une icône composite représentant la proportion de vélos électriques et mécaniques
+     * @param {number} electricCount - Nombre de vélos électriques
+     * @param {number} mechanicalCount - Nombre de vélos mécaniques
+     * @returns {L.Icon} Icône Leaflet
+     */
+    function createProportionalIcon(electricCount, mechanicalCount) {
+        // S'il n'y a aucun vélo, on utilise l'icône par défaut
+        if (electricCount + mechanicalCount === 0) {
+            return customIcon;
+        }
+        
+        // Calculer la proportion de vélos électriques
+        const total = electricCount + mechanicalCount;
+        const electricRatio = electricCount / total;
+        
+        // Créer un élément div pour contenir les deux icônes superposées
+        const container = document.createElement('div');
+        container.className = 'proportional-marker-container';
+        container.style.position = 'relative';
+        container.style.width = '45px';
+        container.style.height = '45px';
+        
+        // Élément pour l'icône mécanique (arrière-plan complet)
+        const mechDiv = document.createElement('div');
+        mechDiv.className = 'mech-icon';
+        mechDiv.style.position = 'absolute';
+        mechDiv.style.top = '0';
+        mechDiv.style.left = '0';
+        mechDiv.style.width = '45px';
+        mechDiv.style.height = '45px';
+        mechDiv.style.backgroundImage = 'url(images/marker-icon_v_meca.png)';
+        mechDiv.style.backgroundSize = 'cover';
+        
+        // Élément pour l'icône électrique (partie gauche seulement)
+        const elecDiv = document.createElement('div');
+        elecDiv.className = 'elec-icon';
+        elecDiv.style.position = 'absolute';
+        elecDiv.style.top = '0';
+        elecDiv.style.left = '0';
+        elecDiv.style.width = Math.round(45 * electricRatio) + 'px'; // Rogner à la proportion
+        elecDiv.style.height = '45px';
+        elecDiv.style.backgroundImage = 'url(images/marker-icon_v_elec.png)';
+        elecDiv.style.backgroundSize = 'cover';
+        elecDiv.style.overflow = 'hidden';
+        
+        // Assembler les éléments
+        container.appendChild(mechDiv);
+        container.appendChild(elecDiv);
+        
+        // Créer l'icône Leaflet avec le HTML personnalisé
+        return L.divIcon({
+            html: container,
+            className: 'custom-div-icon',
+            iconSize: [45, 45],
+            iconAnchor: [22, 45],
+            popupAnchor: [0, -45]
+        });
+    }
+
+
+    /**
+     * Détermine quelle icône utiliser pour une station en fonction de son statut et du mode d'affichage
+     * @param {object} station - Données de la station
+     * @param {string} mode - Mode d'affichage ('all', 'electric', 'mechanical', 'empty', 'closed')
+     * @returns {L.Icon|L.DivIcon} - Icône Leaflet appropriée
+     */
+    function getMarkerIcon(station, mode) {
+        // Vérifier si la station est fermée
+        const isClosed = station.status !== 'OPEN';
+        
+        // Informations sur les vélos disponibles
+        const electricCount = station.electricalBikes || 0;
+        const mechanicalCount = station.mechanicalBikes || 0;
+        const totalBikes = electricCount + mechanicalCount;
+        const isEmpty = totalBikes === 0;
+        
+        // Logique d'icône selon le mode d'affichage
+        switch (mode) {
+            case 'all':
+                // En mode "Toutes"
+                if (isClosed) {
+                    return createDynamicIcon(station, 'images/marker-icon_v_closed.png', mode);
+                } else if (isEmpty) {
+                    return createDynamicIcon(station, 'images/marker-icon_v_empty.png', mode);
+                } else if (electricCount > 0 && mechanicalCount > 0) {
+                    return createProportionalDynamicIcon(station, mode);
+                } else if (electricCount > 0) {
+                    return createDynamicIcon(station, 'images/marker-icon_v_elec.png', mode);
+                } else {
+                    return createDynamicIcon(station, 'images/marker-icon_v_meca.png', mode);
+                }
+            
+            case 'electric':
+                // En mode "Vélos électriques"
+                if (isClosed) {
+                    return createDynamicIcon(station, 'images/marker-icon_v_closed.png', mode);
+                } else if (electricCount > 0) {
+                    return createDynamicIcon(station, 'images/marker-icon_v_elec.png', mode);
+                } else {
+                    return createDynamicIcon(station, 'images/marker-icon_v_empty.png', mode);
+                }
+                
+            case 'mechanical':
+                // En mode "Vélos mécaniques"
+                if (isClosed) {
+                    return createDynamicIcon(station, 'images/marker-icon_v_closed.png', mode);
+                } else if (mechanicalCount > 0) {
+                    return createDynamicIcon(station, 'images/marker-icon_v_meca.png', mode);
+                } else {
+                    return createDynamicIcon(station, 'images/marker-icon_v_empty.png', mode);
+                }
+                
+            case 'empty':
+                // En mode "Stations vides" - toujours l'icône vide
+                return createDynamicIcon(station, 'images/marker-icon_v_empty.png', mode);
+                
+            case 'closed':
+                // En mode "Stations fermées" - toujours l'icône fermée
+                return createDynamicIcon(station, 'images/marker-icon_v_closed.png', mode);
+                
+            default:
+                // Mode par défaut
+                return createDynamicIcon(station, 'images/marker-icon_v.png', mode);
+        }
+    }
 
 
     // Fonction de géocodage via Nominatim
@@ -318,25 +598,70 @@
         xhr.send();
     }
 
+    // Stocker toutes les stations chargées
+    window.stations = [];
+    // Stocker les promesses d'icônes pour éviter de recréer des icônes identiques
+    const iconCache = new Map();
 
-    // charger les marqueurs avec leurs IDs
-    function load_data() {
-      fetch('/regions')
-        .then(r => r.json())
-        .then(data => {
-          window.stationMarkers.length = 0;
-          data.forEach(s => {
-            const m = L.marker([s.lat, s.lon], { icon: customIcon });
-            // lie l’objet station directement au marker
-            m.stationData = s;
-            m.on('click', OnMarkerClick);
-            window.stationMarkers.push({ marker: m, data: s });
-          });
-          showAll();
-        })
-        .catch(console.error);
+    // Fonction pour obtenir une icône selon les proportions, avec mise en cache
+    function getProportionalIcon(electricCount, mechanicalCount) {
+        const key = `${electricCount}:${mechanicalCount}`;
+        
+        if (!iconCache.has(key)) {
+            iconCache.set(key, createProportionalIcon(electricCount, mechanicalCount));
+        }
+        
+        return iconCache.get(key);
     }
 
+
+    function load_data() {
+        // Utiliser la route qui renvoie toutes les données en une seule requête
+        fetch('/stations_full')
+            .then(r => r.json())
+            .then(stationsWithDetails => {
+                window.stationMarkers = [];
+                window.stations = stationsWithDetails; // Stocker les stations globalement
+                
+                // Calculer les maximums pour chaque type de vélos
+                maxBikesCount = 0;
+                maxElectricCount = 0;
+                maxMechanicalCount = 0;
+                maxEmptyCount = 0;
+                
+                stationsWithDetails.forEach(s => {
+                    const totalBikes = (s.bikes || 0);
+                    const electricBikes = (s.electricalBikes || 0);
+                    const mechanicalBikes = (s.mechanicalBikes || 0);
+                    const emptyStands = (s.stands || 0);
+        
+                    if (totalBikes > maxBikesCount) maxBikesCount = totalBikes;
+                    if (electricBikes > maxElectricCount) maxElectricCount = electricBikes;
+                    if (mechanicalBikes > maxMechanicalCount) maxMechanicalCount = mechanicalBikes;
+                    if (emptyStands > maxEmptyCount) maxEmptyCount = emptyStands;
+                });
+
+                console.log("Vélos maximum - Total:", maxBikesCount, "Électriques:", maxElectricCount, "Mécaniques:", maxMechanicalCount, "Vides:", maxEmptyCount);
+
+                // Créer les marqueurs pour chaque station
+                stationsWithDetails.forEach(s => {
+                    const m = L.marker([s.lat, s.lon], {
+                        icon: getMarkerIcon(s, currentDisplayMode)
+                    });
+                    
+                    // Lier l'objet station directement au marker
+                    m.stationData = s;
+                    m.on('click', OnMarkerClick);
+                    window.stationMarkers.push({ marker: m, data: s });
+                });
+                
+                showAll(); // Afficher toutes les stations par défaut
+            })
+            .catch(error => {
+                console.error("Erreur lors du chargement des stations:", error);
+            });
+    }
+    
 
     /**
      * Vide tous les markers, puis n'affiche que ceux
@@ -353,23 +678,174 @@
         .forEach(({ marker }) => marker.addTo(map));
     }
 
-    /** Affiche toutes les stations */
+
+
+    /**
+     * Affiche toutes les stations sur la carte
+     */
     function showAll() {
-      filterMarkers(_ => true);
+        // Définir le mode courant
+        currentDisplayMode = 'all';
+        
+        // Supprimer tous les marqueurs existants
+        map.eachLayer(function(layer) {
+            if (layer instanceof L.Marker) {
+                map.removeLayer(layer);
+            }
+        });
+        
+        // Ajouter tous les marqueurs avec l'icône appropriée
+        window.stationMarkers.forEach(({marker, data}) => {
+            const newIcon = getMarkerIcon(data, 'all');
+            marker.setIcon(newIcon);
+            marker.addTo(map);
+        });
     }
 
-    /** Affiche seulement les stations avec >=1 vélo électrique dispo */
+    /**
+     * Affiche les stations avec des vélos électriques, vides et fermées
+     */
     function showElectric() {
-      filterMarkers(s => s.electricalBikes > 0);
+        // Définir le mode courant
+        currentDisplayMode = 'electric';
+        
+        // Supprimer tous les marqueurs existants
+        map.eachLayer(function(layer) {
+            if (layer instanceof L.Marker) {
+                map.removeLayer(layer);
+            }
+        });
+        
+        // Ajouter les marqueurs avec l'icône appropriée
+        window.stationMarkers.forEach(({marker, data}) => {
+            const newIcon = getMarkerIcon(data, 'electric');
+            marker.setIcon(newIcon);
+            marker.addTo(map);
+        });
     }
 
-    /** Affiche seulement les stations avec >=1 vélo mécanique dispo */
+    /**
+     * Affiche les stations avec des vélos mécaniques, vides et fermées
+     */
     function showMechanical() {
-      filterMarkers(s => s.mechanicalBikes > 0);
+        // Définir le mode courant
+        currentDisplayMode = 'mechanical';
+        
+        // Supprimer tous les marqueurs existants
+        map.eachLayer(function(layer) {
+            if (layer instanceof L.Marker) {
+                map.removeLayer(layer);
+            }
+        });
+        
+        // Ajouter les marqueurs avec l'icône appropriée
+        window.stationMarkers.forEach(({marker, data}) => {
+            const newIcon = getMarkerIcon(data, 'mechanical');
+            marker.setIcon(newIcon);
+            marker.addTo(map);
+        });
+    }
+
+    /**
+     * Affiche uniquement les stations vides
+     */
+    function showEmpty() {
+        // Définir le mode courant
+        currentDisplayMode = 'empty';
+        
+        // Supprimer tous les marqueurs existants
+        map.eachLayer(function(layer) {
+            if (layer instanceof L.Marker) {
+                map.removeLayer(layer);
+            }
+        });
+        
+        // Ajouter uniquement les stations vides
+        window.stationMarkers.forEach(({marker, data}) => {
+            const electricCount = data.electricalBikes || 0;
+            const mechanicalCount = data.mechanicalBikes || 0;
+            const totalBikes = electricCount + mechanicalCount;
+            const isEmpty = totalBikes === 0;
+            const isClosed = data.status !== 'OPEN';
+            
+            if (isEmpty && !isClosed) {
+                marker.setIcon(getMarkerIcon(data, 'empty'));
+                marker.addTo(map);
+            }
+        });
+    }
+
+    /**
+     * Affiche uniquement les stations fermées
+     */
+    function showClosed() {
+        // Définir le mode courant
+        currentDisplayMode = 'closed';
+        
+        // Supprimer tous les marqueurs existants
+        map.eachLayer(function(layer) {
+            if (layer instanceof L.Marker) {
+                map.removeLayer(layer);
+            }
+        });
+        
+        // Ajouter uniquement les stations fermées
+        window.stationMarkers.forEach(({marker, data}) => {
+            const isClosed = data.status !== 'OPEN';
+            
+            if (isClosed) {
+                marker.setIcon(getMarkerIcon(data, 'closed'));
+                marker.addTo(map);
+            }
+        });
     }
 
 
-    
+    /**
+     * Sauvegarde les préférences d'affichage des graphiques dans le localStorage
+     */
+    function saveGraphPreferences() {
+        const preferences = {
+            showTotal: document.getElementById('show-total').checked,
+            showStands: document.getElementById('show-stands').checked,
+            showMechanical: document.getElementById('show-mechanical').checked,
+            showElectric: document.getElementById('show-electric').checked
+        };
+        
+        localStorage.setItem('graphPreferences', JSON.stringify(preferences));
+    }
+
+    /**
+     * Charge les préférences d'affichage des graphiques depuis le localStorage
+     */
+    function loadGraphPreferences() {
+        const savedPrefs = localStorage.getItem('graphPreferences');
+        
+        // Si aucune préférence n'est sauvegardée, on utilise les valeurs par défaut
+        if (!savedPrefs) {
+            return {
+                showTotal: true,
+                showStands: true,
+                showMechanical: true,
+                showElectric: true
+            };
+        }
+        
+        return JSON.parse(savedPrefs);
+    }
+
+    /**
+     * Applique les préférences sauvegardées aux cases à cocher
+     */
+    function applyGraphPreferences() {
+        const prefs = loadGraphPreferences();
+        
+        document.getElementById('show-total').checked = prefs.showTotal;
+        document.getElementById('show-stands').checked = prefs.showStands;
+        document.getElementById('show-mechanical').checked = prefs.showMechanical;
+        document.getElementById('show-electric').checked = prefs.showElectric;
+    }
+
     // Construit le HTML complet d’une popup de station.
     // @param {Object} station  Objet tel que renvoyé par /station/{id}
     // @param {string} [label]  Texte à préfixer au nom (ex. « Station de départ »)
@@ -377,7 +853,7 @@
     function buildStationPopupContent(station, label = station.nom) {
         // Construction du HTML pour la popup
         var content = '<div class="station-popup">';
-          
+        
         // En-tête avec nom et statut
         content += '<h3>' + station.nom + '</h3>';
         content += '<div class="address">' + formatAddress(station) + '</div>';
@@ -407,51 +883,46 @@
 
         // Dernière mise à jour
         content += '<div class="last-update">Dernière mise à jour : ' + formatDate(station.horodate) + '</div>';
-        content += '</div>';
 
-
+        // Ajout des contrôles pour le graphique mais sans afficher l'image directement
         content += `
             <div style="margin-top: 0.5em;">
-              <div>
+            <div>
                 Début : 
                 <input type="range" id="startRange-${station.idstation}" style="width:45%;">
                 <span id="startLabel-${station.idstation}"></span>
-              </div>
-              <div style="margin-top:0.3em;">
+            </div>
+            <div style="margin-top:0.3em;">
                 Fin :   
                 <input type="range" id="endRange-${station.idstation}"   style="width:45%;">
                 <span id="endLabel-${station.idstation}"></span>
-              </div>
-              <div style="margin-top:0.5em;">
-                <button onclick="loadHistoryImg(${station.idstation})">
-                  Afficher la courbe
-                </button>
-              </div>
-              <div style="margin-top:0.5em;">
-                <img id="img-${station.idstation}" style="display:block; width:100%;" />
-              </div>
             </div>
-          `;
+            <div style="margin-top:0.5em;">
+                <button onclick="loadHistoryImg(${station.idstation})">
+                Afficher l'historique'
+                </button>
+            </div>
+            </div>
+        `;
 
+        content += '</div>';
         return content;
     }
 
-
+    // Modification de la fonction OnMarkerClick pour utiliser directement les données du marqueur
     function OnMarkerClick(e) {
-      const marker  = e.target;
-      const station = marker.stationData;
-      const id      = station.idstation;
-
-      fetch('/station/' + id)
-        .then(res => res.json())
-        .then(fullStation => {
-          // bind + open la popup avec ton HTML
-          marker.bindPopup(buildStationPopupContent(fullStation)).openPopup();
-          initRanges(id);
-        })
-        .catch(console.error);
+        // Les données de la station sont déjà attachées au marqueur
+        const station = e.target.stationData;
+        
+        // Construire le contenu de la popup
+        const content = buildStationPopupContent(station);
+        
+        // Unbind any existing popup and bind a new one
+        e.target.unbindPopup().bindPopup(content).openPopup();
+        
+        // Initialiser les sliders pour cette station
+        initRanges(station.idstation);
     }
-
     // Fonction pour formater l'adresse
     function formatAddress(station) {
         let address = station.adresse1 || '';
@@ -477,56 +948,201 @@
 
 
     /**
-     * Initialise deux input[type=range] pour choisir la plage [minTs…maxTs]
-     * et affiche leur valeur dans les <span>.
+     * Initialise les sélecteurs de date/heure pour la visualisation de l'historique
      */
     function initRanges(id) {
-      const minTs = Date.parse('2024-10-25T00:00:00');
-      const maxTs = Date.parse('2024-10-29T23:59:59');
-      const sr = document.getElementById('startRange-'+id);
-      const er = document.getElementById('endRange-'+id);
-      const sl = document.getElementById('startLabel-'+id);
-      const el = document.getElementById('endLabel-'+id);
-
-      // config des sliders
-      [sr, er].forEach(inp => {
-        inp.min   = minTs;
-        inp.max   = maxTs;
-        inp.step  = 60 * 1000;    // pas de 1 minute
-      });
-      sr.value = minTs;
-      er.value = maxTs;
-
-      // mettre à jour l’affichage
-      function updateLabels() {
-        sl.textContent = new Date(+sr.value).toLocaleString('fr-FR');
-        el.textContent = new Date(+er.value).toLocaleString('fr-FR');
-      }
-      sr.addEventListener('input', updateLabels);
-      er.addEventListener('input', updateLabels);
-      updateLabels();
+        // Dates limites pour les données disponibles
+        const minDate = new Date('2024-10-25T00:00:00');
+        const maxDate = new Date('2024-10-29T23:59:59');
+        
+        // Récupérer les conteneurs existants
+        const container = document.querySelector(`.station-popup button[onclick="loadHistoryImg(${id})"]`).parentNode.parentNode;
+        
+        // Vider le conteneur des anciens éléments
+        container.innerHTML = '';
+        
+        // Créer une interface plus ergonomique
+        container.innerHTML = `
+            <div class="date-selector">
+                <div class="date-group">
+                    <label>Du:</label>
+                    <div class="date-inputs">
+                        <select id="startDay-${id}" class="date-select"></select>
+                        <select id="startHour-${id}" class="time-select"></select>
+                    </div>
+                </div>
+                <div class="date-group">
+                    <label>Au:</label>
+                    <div class="date-inputs">
+                        <select id="endDay-${id}" class="date-select"></select>
+                        <select id="endHour-${id}" class="time-select"></select>
+                    </div>
+                </div>
+                <button class="graph-button" onclick="loadHistoryImg(${id})">
+                    Afficher l'historique
+                </button>
+            </div>
+        `;
+        
+        // Remplir les sélecteurs de jours
+        const startDaySelect = document.getElementById(`startDay-${id}`);
+        const endDaySelect = document.getElementById(`endDay-${id}`);
+        
+        // Générer les options pour les jours
+        const days = [];
+        const dayLabels = ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
+        const months = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
+        
+        for (let d = new Date(minDate); d <= maxDate; d.setDate(d.getDate() + 1)) {
+            const dateValue = d.toISOString().split('T')[0];
+            const dateLabel = `${dayLabels[d.getDay()]} ${d.getDate()} ${months[d.getMonth()]}`;
+            days.push({ value: dateValue, label: dateLabel });
+        }
+        
+        // Ajouter les options aux sélecteurs
+        days.forEach(day => {
+            startDaySelect.add(new Option(day.label, day.value));
+            endDaySelect.add(new Option(day.label, day.value));
+        });
+        
+        // Sélectionner le premier et dernier jour par défaut
+        startDaySelect.value = days[0].value;
+        endDaySelect.value = days[days.length - 1].value;
+        
+        // Remplir les sélecteurs d'heures
+        const startHourSelect = document.getElementById(`startHour-${id}`);
+        const endHourSelect = document.getElementById(`endHour-${id}`);
+        
+        // Générer les options pour les heures
+        const hours = [];
+        for (let h = 0; h < 24; h++) {
+            const hourStr = h.toString().padStart(2, '0');
+            hours.push({ value: `${hourStr}:00`, label: `${hourStr}h00` });
+            hours.push({ value: `${hourStr}:30`, label: `${hourStr}h30` });
+        }
+        
+        // Ajouter les options aux sélecteurs
+        hours.forEach(hour => {
+            startHourSelect.add(new Option(hour.label, hour.value));
+            endHourSelect.add(new Option(hour.label, hour.value));
+        });
+        
+        // Sélectionner la première et dernière heure par défaut
+        startHourSelect.value = "00:00";
+        endHourSelect.value = "23:30";
     }
 
     /**
-     * Lit les valeurs des deux ranges, formate en "YYYY-MM-DD HH:MM:SS"
-     * et recharge l'<img> avec la nouvelle URL.
+     * Affiche un graphique dans le panneau glissant depuis le bas
      */
-    function loadHistoryImg(id) {
-      const sr = document.getElementById('startRange-'+id);
-      const er = document.getElementById('endRange-'+id);
+    function loadHistoryImg(id, isUpdate = false) {
+        // Récupérer les valeurs des sélecteurs de date et heure
+        const startDay = document.getElementById(`startDay-${id}`).value;
+        const startHour = document.getElementById(`startHour-${id}`).value;
+        const endDay = document.getElementById(`endDay-${id}`).value;
+        const endHour = document.getElementById(`endHour-${id}`).value;
+        
+        // Construire les dates complètes
+        const startDate = `${startDay} ${startHour}:00`;
+        const endDate = `${endDay} ${endHour}:00`;
+        
+        // Créer des objets Date pour l'affichage
+        const startDateObj = new Date(`${startDay}T${startHour}`);
+        const endDateObj = new Date(`${endDay}T${endHour}`);
+        
+        // Si premier chargement du panneau, appliquer les préférences sauvegardées
+        if (!isUpdate) {
+            applyGraphPreferences();
+        }
 
-      const fmt = ts => new Date(+ts)
-        .toISOString().slice(0,19).replace('T',' ');
+        // Récupérer les sélections de séries à afficher
+        const prefs = loadGraphPreferences();
+        
+        const params = new URLSearchParams({
+            start: startDate,
+            end: endDate,
+            show_total: prefs.showTotal ? '1' : '0',
+            show_stands: prefs.showStands ? '1' : '0',
+            show_mechanical: prefs.showMechanical ? '1' : '0',
+            show_electric: prefs.showElectric ? '1' : '0'
+        });
+        
+        const imgUrl = `/history_png/${id}?${params.toString()}`;
 
-      const params = new URLSearchParams({
-        start: fmt(sr.value),
-        end:   fmt(er.value)
-      });
+        // Récupérer la station
+        const station = findStationById(id);
+        if (!station) return;
 
-      document.getElementById('img-'+id)
-              .src = `/history_png/${id}?${params.toString()}`;
+        // Récupérer le nom de la station
+        const stationName = station.nom;
+
+        // Formater l'affichage des dates
+        const formatDate = (date) => {
+            const days = ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
+            const months = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
+            
+            return `${days[date.getDay()]} ${date.getDate()} ${months[date.getMonth()]} à ${date.getHours()}h${date.getMinutes().toString().padStart(2, '0')}`;
+        };
+
+        // Mettre à jour le contenu du panneau
+        document.getElementById('graph-station-info').textContent = stationName;
+        document.getElementById('graph-date-info').innerHTML = `
+            <p class="date-range">
+                Du <span class="date-value">${formatDate(startDateObj)}</span><br>
+                au <span class="date-value">${formatDate(endDateObj)}</span>
+            </p>
+        `;
+        
+        // Stocker l'ID de la station pour les mises à jour ultérieures
+        document.getElementById('graph-panel').dataset.stationId = id;
+        
+        // Charger l'image avec indicateur de chargement
+        const container = document.querySelector('.graph-image-container');
+        container.innerHTML = '<div class="loading">Chargement du graphique...</div>';
+        
+        const img = new Image();
+        img.onload = function() {
+            container.innerHTML = '';
+            container.appendChild(img);
+        };
+        img.onerror = function() {
+            container.innerHTML = '<div class="error">Erreur lors du chargement du graphique</div>';
+        };
+        img.src = imgUrl;
+        img.id = 'graph-image';
+        img.alt = 'Graphique d\'occupation';
+        img.style.width = '100%';
+        
+        // Afficher le panneau latéral s'il ne l'est pas déjà
+        if (!isUpdate) {
+            document.getElementById('graph-panel').classList.add('active');
+        }
     }
-
+    
+    // Fonction pour trouver une station par son ID
+    function findStationById(id) {
+        // Chercher d'abord dans le tableau global window.stations
+        if (window.stations && window.stations.length > 0) {
+            const found = window.stations.find(s => s.idstation == id);
+            if (found) return found;
+        }
+        
+        // Sinon chercher dans les marqueurs
+        for (let markerObj of window.stationMarkers) {
+            if (markerObj.data.idstation == id) {
+                return markerObj.data;
+            }
+        }
+        
+        // Ensuite chercher dans le tableau stations local
+        if (stations && stations.length > 0) {
+            const found = stations.find(s => s.idstation == id);
+            if (found) return found;
+        }
+        
+        console.error(`Station ID ${id} not found`);
+        return null;
+    }
     // Gestion de l'affichage du panneau d'itinéraire
     document.addEventListener('DOMContentLoaded', function() {
         const toggleButton = document.getElementById('toggle-route-form');
@@ -543,12 +1159,64 @@
             routePanel.classList.remove('active');
         });
         
-        // Fermer le panneau quand on clique en dehors
-        document.addEventListener('click', function(event) {
-            if (!routePanel.contains(event.target) && 
-                !toggleButton.contains(event.target) && 
-                routePanel.classList.contains('active')) {
-                routePanel.classList.remove('active');
+        // // Fermer le panneau quand on clique en dehors
+        // document.addEventListener('click', function(event) {
+        //     if (!routePanel.contains(event.target) && 
+        //         !toggleButton.contains(event.target) && 
+        //         routePanel.classList.contains('active')) {
+        //         routePanel.classList.remove('active');
+        //     }
+        // });
+    });
+
+    // Initialiser les gestionnaires d'événements pour le panneau de graphique
+    document.addEventListener('DOMContentLoaded', function() {
+        // Gestionnaire pour le bouton de fermeture du panneau
+        document.getElementById('close-graph-panel').addEventListener('click', function() {
+            document.getElementById('graph-panel').classList.remove('active');
+        });
+        
+        // Écouter les changements sur les cases à cocher pour sauvegarder les préférences
+        document.getElementById('show-total').addEventListener('change', saveGraphPreferences);
+        document.getElementById('show-stands').addEventListener('change', saveGraphPreferences);
+        document.getElementById('show-mechanical').addEventListener('change', saveGraphPreferences);
+        document.getElementById('show-electric').addEventListener('change', saveGraphPreferences);
+        
+        // Modifier le gestionnaire du bouton de mise à jour pour utiliser les préférences
+        document.getElementById('update-graph').addEventListener('click', function() {
+            const graphPanel = document.getElementById('graph-panel');
+            const stationId = graphPanel.dataset.stationId;
+            
+            // Sauvegarder les préférences avant de mettre à jour
+            saveGraphPreferences();
+            
+            if (stationId) {
+                loadHistoryImg(stationId, true);
+            }
+        });
+        
+        // Ajouter du style pour le chargement
+        const style = document.createElement('style');
+        style.textContent = `
+            .loading {
+                text-align: center;
+                padding: 20px;
+                color: #666;
+            }
+            .error {
+                text-align: center;
+                padding: 20px;
+                color: #d9534f;
+            }
+        `;
+        document.head.appendChild(style);
+
+        document.getElementById('update-graph').addEventListener('click', function() {
+            const graphPanel = document.getElementById('graph-panel');
+            const stationId = graphPanel.dataset.stationId;
+
+            if (stationId) {
+                loadHistoryImg(stationId, true);
             }
         });
     });

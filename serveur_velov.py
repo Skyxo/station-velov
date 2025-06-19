@@ -9,26 +9,56 @@ import http.server
 import socketserver
 from urllib.parse import urlparse, parse_qs, unquote
 import json
-
 import io
 import os
 import sqlite3
-
 import matplotlib.pyplot as plt
 import matplotlib.dates as pltd
-
 from datetime import datetime
+import shutil
 
-# on s’assure que le dossier client/courbes existe
+# on s'assure que le dossier client/courbes existe
 STATIC_DIR = 'client'
 COURBES_DIR = os.path.join(STATIC_DIR, 'courbes')
 os.makedirs(COURBES_DIR, exist_ok=True)
-
 
 # numéro du port TCP utilisé par le serveur
 port_serveur = 8080
 # nom de la base de données
 BD_name ="velov.sqlite"
+
+# Fonction pour initialiser le cache
+def init_cache():
+    """Initialise ou réinitialise le cache des graphiques"""
+    print("Initialisation du cache des graphiques...")
+    
+    # Vider le dossier des courbes
+    if os.path.exists(COURBES_DIR):
+        for file in os.listdir(COURBES_DIR):
+            file_path = os.path.join(COURBES_DIR, file)
+            try:
+                if os.path.isfile(file_path):
+                    os.unlink(file_path)
+            except Exception as e:
+                print(f"Erreur lors de la suppression du fichier {file_path}: {e}")
+    
+    # Créer la table de cache si elle n'existe pas
+    c = conn.cursor()
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS "cache_graphiques" (
+            "id" INTEGER PRIMARY KEY AUTOINCREMENT,
+            "station_id" TEXT,
+            "start_date" TEXT,
+            "end_date" TEXT,
+            "filename" TEXT,
+            "creation_date" TEXT
+        )
+    ''')
+    
+    # Vider la table de cache
+    c.execute('DELETE FROM "cache_graphiques"')
+    conn.commit()
+    print("Cache des graphiques réinitialisé.")
 
 class RequestHandler(http.server.SimpleHTTPRequestHandler):
   """"Classe dérivée pour traiter les requêtes entrantes du serveur"""
@@ -48,33 +78,120 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
     self.init_params()
 
     if self.path_info[0] == 'center':
-      self.send_center()
-      return
-
+        self.send_center()
+        return
+    
     # le chemin d'accès commence par /regions
     elif self.path_info[0] == 'regions':
-      self.send_regions()
-      return
+        self.send_regions()
+        return
+    
+    # Nouvelle route pour obtenir toutes les stations avec leurs détails
+    elif self.path_info[0] == 'stations_full':
+        self.send_all_stations_with_details()
+        return
 
     # le chemin d'accès commence par /station/{id}
     elif self.path_info[0] == 'station' and len(self.path_info) > 1:
-      self.send_station_details(self.path_info[1])
-      return
-
-    # le chemin d'accès commence par /ponctualite
-    elif self.path_info[0] == 'ponctualite':
-      self.send_ponctualite()
-      return
-  
-    # le chemin d'accès commence par /history_png
+        self.send_station_details(self.path_info[1])
+        return
+    
+    # le chemin d'accès commence par /history_png/{id}
     elif self.path_info[0] == 'history_png' and len(self.path_info) > 1:
         self.send_station_history_png(self.path_info[1])
         return
 
-
     # sinon appel de la méthode parente...
     else:
-      super().do_GET()
+        super().do_GET()
+
+  def send_all_stations_with_details(self):
+      """Envoie toutes les stations avec leurs données détaillées en une seule requête"""
+      try:
+          c = conn.cursor()
+          
+          # Récupérer les informations de base des stations
+          c.execute('''
+              SELECT idstation, nom, adresse1, adresse2, commune, nbbornettes, 
+                    stationbonus, pole, ouverte, lon, lat
+              FROM "velov-stations"
+          ''')
+          
+          stations_data = c.fetchall()
+          stations = []
+          
+          # Récupérer les dernières données disponibles pour toutes les stations en une seule requête
+          c.execute('''
+              SELECT h1.number, h1.horodate, h1.status, h1.capacity, h1.bikes, h1.stands,
+                    h1.electricalBikes, h1.mechanicalBikes, 
+                    h1.electricalInternalBatteryBikes, h1.electricalRemovableBatteryBikes
+              FROM "velov-histo" h1
+              INNER JOIN (
+                  SELECT number, MAX(horodate) as max_horodate
+                  FROM "velov-histo"
+                  GROUP BY number
+              ) h2 ON h1.number = h2.number AND h1.horodate = h2.max_horodate
+          ''')
+          
+          # Créer un dictionnaire pour un accès rapide
+          histo_data = {}
+          for row in c.fetchall():
+              histo_data[str(row[0])] = {
+                  'horodate': row[1],
+                  'status': row[2],
+                  'capacity': row[3],
+                  'bikes': row[4],
+                  'stands': row[5],
+                  'electricalBikes': row[6],
+                  'mechanicalBikes': row[7],
+                  'electricalInternalBatteryBikes': row[8],
+                  'electricalRemovableBatteryBikes': row[9]
+              }
+          
+          # Combiner les données
+          for station in stations_data:
+              station_info = {
+                  'idstation': station[0],
+                  'nom': station[1],
+                  'adresse1': station[2],
+                  'adresse2': station[3],
+                  'commune': station[4],
+                  'nbbornettes': station[5],
+                  'stationbonus': station[6],
+                  'pole': station[7],
+                  'ouverte': station[8],
+                  'lon': station[9],
+                  'lat': station[10]
+              }
+              
+              # Ajouter les données d'historique si disponibles
+              station_id = str(station[0])
+              if station_id in histo_data:
+                  station_info.update(histo_data[station_id])
+              else:
+                  # Valeurs par défaut si aucune donnée d'historique
+                  station_info.update({
+                      'horodate': None,
+                      'status': 'UNKNOWN',
+                      'capacity': station[5] or 0,  # nbbornettes
+                      'bikes': 0,
+                      'stands': 0,
+                      'electricalBikes': 0,
+                      'mechanicalBikes': 0,
+                      'electricalInternalBatteryBikes': 0,
+                      'electricalRemovableBatteryBikes': 0
+                  })
+              
+              stations.append(station_info)
+              
+          # Envoi de la réponse
+          body = json.dumps(stations)
+          headers = [('Content-Type', 'application/json')]
+          self.send(body, headers)
+          
+      except sqlite3.Error as e:
+          self.send_error(500, f"Erreur SQLite : {e}")
+          print(f"Erreur SQLite dans send_all_stations_with_details : {e}")
 
   def send_station_details(self, station_id):
     """Envoyer les détails d'une station spécifique avec les données historiques récentes"""
@@ -147,81 +264,133 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
         print(f"Erreur SQLite dans send_station_details : {e}")
         
   def send_station_history_png(self, station_id):
-    """
-    Génère un PNG contenant la courbe de la station station_id
-    sur la plage start/end passée en query string.
-    """
-    c = conn.cursor()
+      """
+      Génère un PNG contenant la courbe de la station station_id
+      sur la plage start/end passée en query string.
+      Utilise un cache pour éviter de regénérer les graphiques identiques.
+      """
+      print(f"Demande de graphique pour station_id = {station_id}")
+      c = conn.cursor()
 
-    # bornes optionnelles
-    start = self.params.get('start', [None])[0]
-    end   = self.params.get('end',   [None])[0]
+      # bornes optionnelles
+      start = self.params.get('start', [None])[0]
+      end = self.params.get('end', [None])[0]
+      print(f"Période demandée : du {start} au {end}")
+      
+      # Options d'affichage des séries
+      show_total = self.params.get('show_total', ['1'])[0] == '1'
+      show_stands = self.params.get('show_stands', ['1'])[0] == '1'
+      show_mechanical = self.params.get('show_mechanical', ['1'])[0] == '1'
+      show_electric = self.params.get('show_electric', ['1'])[0] == '1'
+      
+      # Créer une clé de cache qui inclut les options d'affichage
+      cache_key = f"station_{station_id}"
+      if start:
+          # Remplacer les caractères non autorisés dans le nom de fichier
+          safe_start = start.replace(':', '-').replace(' ', '_')
+          cache_key += f"_start_{safe_start}"
+      if end:
+          # Remplacer les caractères non autorisés dans le nom de fichier
+          safe_end = end.replace(':', '-').replace(' ', '_')
+          cache_key += f"_end_{safe_end}"
+      
+      # Ajouter les options d'affichage à la clé de cache
+      cache_key += f"_t{int(show_total)}s{int(show_stands)}m{int(show_mechanical)}e{int(show_electric)}"
+      
+      filename = cache_key + ".png"
+      filepath = os.path.join(COURBES_DIR, filename)
+      
+      # Vérifier si le graphique est dans le cache
+      c.execute('''
+          SELECT filename FROM "cache_graphiques" 
+          WHERE station_id = ? AND 
+                (start_date IS NULL OR start_date = ?) AND 
+                (end_date IS NULL OR end_date = ?) AND
+                filename = ?
+      ''', (station_id, start, end, filename))
+      
+      cached = c.fetchone()
+      
+      # Si le graphique est dans le cache et le fichier existe, on l'utilise
+      if cached and os.path.exists(os.path.join(COURBES_DIR, cached[0])):
+          print(f"Utilisation du graphique en cache: {cached[0]}")
+          with open(os.path.join(COURBES_DIR, cached[0]), 'rb') as f:
+              self.send(f.read(), [('Content-Type', 'image/png')])
+          return
+      
+      # Sinon, on génère le graphique
+      where = ['number = ?']
+      args = [station_id]
+      fmt = "datetime(substr(horodate,1,19))"
+      if start:
+          where.append(f"{fmt} >= ?"); args.append(start)
+      if end:
+          where.append(f"{fmt} <= ?"); args.append(end)
 
-    where = ['number = ?']
-    args  = [station_id]
-    fmt = "datetime(substr(horodate,1,19))"
-    if start:
-        where.append(f"{fmt} >= ?"); args.append(start)
-    if end:
-        where.append(f"{fmt} <= ?"); args.append(end)
+      sql = f"""
+        SELECT horodate, bikes, stands, mechanicalBikes, electricalBikes
+        FROM "velov-histo"
+        WHERE {" AND ".join(where)}
+        ORDER BY {fmt} ASC
+      """
+      c.execute(sql, args)
+      rows = c.fetchall()
 
-    sql = f"""
-      SELECT horodate, bikes, stands, mechanicalBikes, electricalBikes
-      FROM "velov-histo"
-      WHERE {" AND ".join(where)}
-      ORDER BY {fmt} ASC
-    """
-    c.execute(sql, args)
-    rows = c.fetchall()
+      # Si pas de données, on renvoie vide
+      if not rows:
+          self.send(b'', [('Content-Type','image/png')])
+          return
 
-    # si pas de données, on renvoie vide
-    if not rows:
-        self.send(b'', [('Content-Type','image/png')])
-        return
+      # Préparer les listes
+      dates = [datetime.strptime(r[0][:19], '%Y-%m-%d %H:%M:%S') for r in rows]
+      bikes = [r[1] for r in rows]
+      stands = [r[2] for r in rows]
+      mechanical = [r[3] for r in rows]
+      electrical = [r[4] for r in rows]
 
-    # préparer les listes
-    dates      = [datetime.strptime(r[0][:19], '%Y-%m-%d %H:%M:%S') for r in rows]
-    bikes      = [r[1] for r in rows]
-    stands     = [r[2] for r in rows]
-    mechanical = [r[3] for r in rows]
-    electrical = [r[4] for r in rows]
+      # Tracé
+      fig, ax = plt.subplots()
+      
+      # Tracer seulement les séries sélectionnées
+      if show_total:
+          ax.plot(dates, bikes, label='Vélos totaux')
+      if show_stands:
+          ax.plot(dates, stands, label='Places libres')
+      if show_mechanical:
+          ax.plot(dates, mechanical, label='Vélos mécaniques')
+      if show_electric:
+          ax.plot(dates, electrical, label='Vélos électriques')
+      
+      ax.set_xlabel('Date')
+      ax.set_ylabel('Nombre')
+      ax.legend()
+      fig.autofmt_xdate()
+      # Formater l'axe x
+      ax.xaxis.set_major_formatter(pltd.DateFormatter('%d/%m %H:%M'))
+      
+      # On enregistre la figure
+      fig.savefig(filepath, format='png', bbox_inches='tight')
+      
+      # On enregistre dans le cache
+      now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+      c.execute('''
+          INSERT INTO "cache_graphiques" 
+          (station_id, start_date, end_date, filename, creation_date) 
+          VALUES (?, ?, ?, ?, ?)
+      ''', (station_id, start, end, filename, now))
+      conn.commit()
+      
+      print(f"Nouveau graphique généré et mis en cache: {filename}")
 
-    # tracé
-    fig, ax = plt.subplots()
-    ax.plot(dates, bikes,      label='Vélos totaux')
-    ax.plot(dates, stands,     label='Bornettes libres')
-    ax.plot(dates, mechanical, label='Mécaniques')
-    ax.plot(dates, electrical, label='Électriques')
-    ax.set_xlabel('Date')
-    ax.set_ylabel('Nombre')
-    ax.legend()
-    fig.autofmt_xdate()
-    #formater l’axe x
-    ax.xaxis.set_major_formatter(pltd.DateFormatter('%d/%m %H:%M'))
-    
-    
-    # fonction utilitaire pour passer "YYYY-MM-DD HH:MM:SS" -> "YYYY_MM_DD_HH_MM_SS"
-    def sanitize(dt_str):
-        return dt_str.replace('-', '_').replace(' ', '_').replace(':', '_')
-    
-    #s_part = sanitize(start) if start else 'all'
-    #e_part = sanitize(end)   if end   else 'all'
-    
-    filename = f'history_{station_id}' #__{s_part}__{e_part}.png'
-    filepath = os.path.join(COURBES_DIR, filename)
-    
-    # on enregistre la figure
-    fig.savefig(filepath, format='png', bbox_inches='tight')
+      # Écrire dans un buffer mémoire
+      buf = io.BytesIO()
+      fig.savefig(buf, format='png', bbox_inches='tight')
+      plt.close(fig)
+      buf.seek(0)
+      png = buf.read()
 
-    # écrire dans un buffer mémoire
-    buf = io.BytesIO()
-    fig.savefig(buf, format='png', bbox_inches='tight')
-    plt.close(fig)
-    buf.seek(0)
-    png = buf.read()
-
-    # renvoyer le PNG
-    self.send(png, [('Content-Type','image/png')])
+      # Renvoyer le PNG
+      self.send(png, [('Content-Type','image/png')])
 
 
   def send_regions(self):
@@ -370,13 +539,22 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
     print('init_params|body =', length, ctype, self.body)
     print('init_params|params =', self.params)
 
-
 # Ouverture d'une connexion avec la base de données après vérification de sa présence
 if not os.path.exists(BD_name):
     raise FileNotFoundError("BD {} non trouvée !".format(BD_name))
 conn = sqlite3.connect(BD_name)
 
+# Initialiser ou réinitialiser le cache au démarrage du serveur
+init_cache()
+
 # Instanciation et lancement du serveur
 httpd = socketserver.TCPServer(("", port_serveur), RequestHandler)
 print("Serveur lancé sur port : ", port_serveur)
-httpd.serve_forever()
+try:
+    httpd.serve_forever()
+except KeyboardInterrupt:
+    print("Serveur arrêté par l'utilisateur")
+finally:
+    # Fermeture propre de la connexion
+    conn.close()
+    httpd.server_close()
