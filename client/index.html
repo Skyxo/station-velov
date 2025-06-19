@@ -361,7 +361,7 @@
 
 
 
-    /** Pour mettre à jour les couleurs du header **/
+    /** Pour mettre à jour les couleurs de la page en fonction de la selection de l'utilisateur **/
     function setFilterColors(color) {
       // header <h1>
       const h1 = document.querySelector('header h1');
@@ -374,6 +374,11 @@
       // titre <h2> du panneau itinéraire
       const panelH2 = document.querySelector('.panel-header h2');
       panelH2.parentNode.style.backgroundColor = color;
+
+      // boutons de filtres
+      document.querySelectorAll('#filters button').forEach(btn => {
+        btn.style.backgroundColor = color;
+      });
     }
 
 
