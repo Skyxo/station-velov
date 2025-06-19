@@ -66,6 +66,13 @@ a {
   cursor: pointer;
 }
 */
+
+#filters button img {
+    height: 1.2em;
+    width: auto;    
+    vertical-align: middle;
+}
+
 a.delete:hover {
   color: red;
 }
@@ -130,6 +137,7 @@ a.delete:hover {
     height: auto;        /* garde les proportions */
     display: block;
     margin: 0 auto;
+    anchor: bottom;
 }
 
 /* Modification du style du formulaire pour l'adapter au panneau */
