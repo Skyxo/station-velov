@@ -1,8 +1,6 @@
 ﻿/* fond de page */
 body {
-  background-image: url("images/velo1.jpg");
   background-size: 20%;
-  background-position: bottom left;
   background-repeat: no-repeat;
   color: white;
   height: 100vh;
@@ -119,11 +117,31 @@ a.delete:hover {
 
 
 #map { 
-    height: 60vh; /* 90% de la hauteur de la fenêtre */
+    height: 90%; /* 90% de la hauteur de la fenêtre */
     width: 95%;   /* 95% de la largeur du conteneur */
     margin: 0 auto; /* centrage horizontal */
     position: relative;
     z-index: 1;
+}
+
+#velo_margot {
+    width: 100%;
+    max-width: 350px;
+    position: bottom;
+    height: auto;        /* garde les proportions */
+    display: block;
+    margin: 0 auto;
+}
+
+/* Modification du style du formulaire pour l'adapter au panneau */
+#route-form {
+    padding: 20px;
+    margin: 0;
+    box-shadow: none;
+    border-radius: 0;
+    max-width: none;
+    overflow-y: auto;
+    flex-grow: 1;
 }
 
 /* Styles pour le panneau latéral */
@@ -190,17 +208,6 @@ a.delete:hover {
     font-size: 1.5rem;
     cursor: pointer;
     color: white;
-}
-
-/* Modification du style du formulaire pour l'adapter au panneau */
-#route-form {
-    padding: 20px;
-    margin: 0;
-    box-shadow: none;
-    border-radius: 0;
-    max-width: none;
-    overflow-y: auto;
-    flex-grow: 1;
 }
 
 .submit-button {
