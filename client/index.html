@@ -405,19 +405,6 @@
         }
     }
 
-    function loadHistoryImg(id) {
-        const startEl = document.getElementById('start-'+id);
-        const endEl   = document.getElementById('end-'+id);
-        const params  = new URLSearchParams();
-
-        if (startEl.value) params.set('start', startEl.value.replace('T',' '));
-        if (endEl.value)   params.set('end',   endEl.value.replace('T',' '));
-
-        const img = document.getElementById('img-'+id);
-        img.src = '/history_png/' + id + '?' + params.toString();
-    }
-
-
 
     /**
      * Initialise deux input[type=range] pour choisir la plage [minTs…maxTs]

@@ -240,7 +240,6 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
       self.send(body,headers)
 
 
-
   def send_center(self):
     """Calculer et envoyer le centre géographique des stations depuis SQLite"""
     if not os.path.exists(BD_name):
@@ -320,34 +319,30 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
 
 
   def send(self, body, headers=[]):
-    """
-    Envoyer la réponse au client.
-    body peut être bytes ou str.
-    headers : liste de tuples (clé, valeur).
-    """
-    if isinstance(body, (bytes, bytearray)):
-        content = body
-    else:
-        content = body.encode('utf-8')
+      """Envoyer la réponse au client avec le corps et les en-têtes fournis"""
+      # Vérification et encodage du corps de la réponse
+      if body is None:
+          body = ""  # Définit un contenu par défaut si aucun corps n'est fourni
+      try:
+          encoded = bytes(body, 'UTF-8')  # Encodage en UTF-8
+      except Exception as e:
+          print(f"Erreur lors de l'encodage du corps : {e}")
+          encoded = b""  # Définit un corps vide en cas d'erreur
 
-    self.send_response(200)
-    for k, v in headers:
-        self.send_header(k, v)
-    self.send_header('Content-Length', str(len(content)))
-    self.end_headers()
-    self.wfile.write(content)
+      # Envoi de la ligne de statut
+      self.send_response(200)
 
+      # Envoi des en-têtes
+      for header in headers:
+          self.send_header(*header)
+      self.send_header('Content-Length', len(encoded))  # Taille du corps
+      self.end_headers()
 
-    # on envoie la ligne de statut
-    self.send_response(200)
-
-    # on envoie les lignes d'entête et la ligne vide
-    [self.send_header(*t) for t in headers]
-    self.send_header('Content-Length', int(len(encoded)))
-    self.end_headers()
-
-    # on envoie le corps de la réponse
-    self.wfile.write(encoded)
+      # Envoi du corps de la réponse
+      try:
+          self.wfile.write(encoded)
+      except Exception as e:
+          print(f"Erreur lors de l'envoi du corps de la réponse : {e}")
 
 
   def init_params(self):
