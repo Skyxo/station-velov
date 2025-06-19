@@ -147,7 +147,7 @@
     // Charger toutes les stations une seule fois
     let stations = [];
     async function loadStations() {
-        const res = await fetch('/regions');
+        const res = await fetch('/stations');
         if (!res.ok) throw new Error('Impossible de charger les stations');
         stations = await res.json();
     }
@@ -321,20 +321,26 @@
 
     // charger les marqueurs avec leurs IDs
     function load_data() {
-      fetch('/regions')
-        .then(r => r.json())
+      fetch('/stations')
+        .then(res => {
+          if (!res.ok) throw new Error('Erreur /stations');
+          return res.json();
+        })
         .then(data => {
           window.stationMarkers.length = 0;
+
           data.forEach(s => {
             const m = L.marker([s.lat, s.lon], { icon: customIcon });
-            // lie l’objet station directement au marker
+            // stocke les données de la station
             m.stationData = s;
             m.on('click', OnMarkerClick);
             window.stationMarkers.push({ marker: m, data: s });
           });
+
+          // affiche toutes par défaut
           showAll();
         })
-        .catch(console.error);
+        .catch(err => console.error(err));
     }
 
 

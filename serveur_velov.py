@@ -51,9 +51,9 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
       self.send_center()
       return
 
-    # le chemin d'accès commence par /regions
-    elif self.path_info[0] == 'regions':
-      self.send_regions()
+    # le chemin d'accès commence par /stations
+    elif self.path_info[0] == 'stations':
+      self.send_stations()
       return
 
     # le chemin d'accès commence par /station/{id}
@@ -224,20 +224,37 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
     self.send(png, [('Content-Type','image/png')])
 
 
-  def send_regions(self):
-      """Génèrer une réponse avec la liste des régions (version TD3, §5.1)"""
-  
-      # création du curseur (la connexion a été créée par le programme principal)
-      c = conn.cursor()
-      
-      # récupération de la liste des régions et coordonnées (import de regions.csv)
-      c.execute("SELECT idstation, nom, lat, lon FROM 'velov-stations'")
-      r = c.fetchall()
-      body = json.dumps([{'idstation':id, 'nom':n, 'lat':lat, 'lon': lon} 
-                        for (id,n,lat,lon) in r])    
-      # envoi de la réponse
-      headers = [('Content-Type','application/json')];
-      self.send(body,headers)
+  def send_stations(self):
+    """
+    Envoie la liste de toutes les stations, avec :
+      - idstation, nom, lat, lon
+      - last_electrical  (dernier nombre de vélos électriques)
+      - last_mechanical  (dernier nombre de vélos mécaniques)
+    """
+    c = conn.cursor()
+    c.execute("""
+        SELECT idstation, nom, lat, lon,
+               last_electrical,
+               last_mechanical
+        FROM "velov-stations"
+    """)
+    rows = c.fetchall()
+
+    stations = []
+    for idstation, nom, lat, lon, eb, mb in rows:
+        stations.append({
+            'idstation':       idstation,
+            'nom':             nom,
+            'lat':             lat,
+            'lon':             lon,
+            'electricalBikes': eb,
+            'mechanicalBikes': mb
+        })
+
+    body = json.dumps(stations)
+    headers = [('Content-Type','application/json')]
+    self.send(body, headers)
+
 
 
   def send_center(self):
