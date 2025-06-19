@@ -126,6 +126,94 @@ a.delete:hover {
     z-index: 1;
 }
 
+/* Styles pour le panneau latéral */
+.side-panel {
+    position: fixed;
+    top: 0;
+    right: -400px; /* Caché par défaut */
+    width: 350px;
+    height: 100%;
+    background-color: white;
+    box-shadow: -2px 0 10px rgba(0, 0, 0, 0.2);
+    transition: right 0.3s ease-in-out;
+    z-index: 1000;
+    color: #333;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.side-panel.active {
+    right: 0; /* Affiché quand la classe 'active' est présente */
+}
+
+.panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px;
+    background-color: rgba(102, 255, 153, 0.8);
+    color: white;
+}
+
+.panel-header h2 {
+    margin: 0;
+    font-size: 1.5rem;
+}
+
+/* Bouton pour afficher le panneau */
+.toggle-button {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 900;
+    background-color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 12px;
+    cursor: pointer;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    display: flex;
+    align-items: center;
+    font-weight: bold;
+}
+
+.toggle-icon {
+    margin-right: 5px;
+    font-size: 1.2em;
+}
+
+/* Bouton pour fermer le panneau */
+.close-button {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: white;
+}
+
+/* Modification du style du formulaire pour l'adapter au panneau */
+#route-form {
+    padding: 20px;
+    margin: 0;
+    box-shadow: none;
+    border-radius: 0;
+    max-width: none;
+    overflow-y: auto;
+    flex-grow: 1;
+}
+
+.submit-button {
+    margin-top: 20px;
+    background-color: rgba(102, 255, 153);
+    color: white;
+    font-weight: bold;
+}
+
+.submit-button:hover {
+    background-color: #005f80;
+}
+
 /* Nouveaux styles pour la popup */
 .station-popup {
     min-width: 250px;

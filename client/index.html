@@ -30,20 +30,45 @@
 
 <body onload="initialize_page()">
     <h1>Stations Vélo'v</h1>
+
+    <button id="toggle-route-form" class="toggle-button">
+        <span class="toggle-icon">&#9776;</span> Itinéraire
+    </button>
+
     <div id="map"></div>
 
     <!-- formulaire GPS -->
-    <form id="route-form">
-        <div class="form-group">
-            <label for="start-address">Adresse de départ</label>
-            <input type="text" id="start-address" name="start" placeholder="Ex : 10 Rue de la République, Lyon" required>
+    <div id="route-panel" class="side-panel">
+        <div class="panel-header">
+            <h2>Calculer un itinéraire</h2>
+            <button id="close-panel" class="close-button">&times;</button>
         </div>
-        <div class="form-group">
-            <label for="end-address">Adresse d'arrivée</label>
-            <input type="text" id="end-address" name="end" placeholder="Ex : 5 Place Bellecour, Lyon" required>
-        </div>
-        <button type="submit">Calculer l’itinéraire</button>
-    </form>
+        <form id="route-form">
+            <div class="form-group">
+                <label for="start-address">Adresse de départ</label>
+                <input type="text" id="start-address" name="start" placeholder="Ex : 10 Rue de la République, Lyon" required>
+            </div>
+            <div class="form-group">
+                <label for="end-address">Adresse d'arrivée</label>
+                <input type="text" id="end-address" name="end" placeholder="Ex : 5 Place Bellecour, Lyon" required>
+            </div>
+            <button type="submit" class="submit-button">Calculer l'itinéraire</button>
+        </form>
+    </div>
+
+        <script>
+            // Gestion du bouton toggle pour afficher/masquer le formulaire
+            document.getElementById('toggle-route-form').addEventListener('click', () => {
+                const panel = document.getElementById('route-panel');
+                panel.classList.toggle('visible');
+            });
+
+            // Gestion du bouton de fermeture du panneau
+            document.getElementById('close-panel').addEventListener('click', () => {
+                const panel = document.getElementById('route-panel');
+                panel.classList.remove('visible');
+            });
+        </script>
 </body>
 
 
@@ -456,5 +481,31 @@
       document.getElementById('img-'+id)
               .src = `/history_png/${id}?${params.toString()}`;
     }
+
+    // Gestion de l'affichage du panneau d'itinéraire
+    document.addEventListener('DOMContentLoaded', function() {
+        const toggleButton = document.getElementById('toggle-route-form');
+        const closeButton = document.getElementById('close-panel');
+        const routePanel = document.getElementById('route-panel');
+        
+        // Afficher le panneau quand on clique sur le bouton
+        toggleButton.addEventListener('click', function() {
+            routePanel.classList.add('active');
+        });
+        
+        // Fermer le panneau quand on clique sur le bouton de fermeture
+        closeButton.addEventListener('click', function() {
+            routePanel.classList.remove('active');
+        });
+        
+        // Fermer le panneau quand on clique en dehors
+        document.addEventListener('click', function(event) {
+            if (!routePanel.contains(event.target) && 
+                !toggleButton.contains(event.target) && 
+                routePanel.classList.contains('active')) {
+                routePanel.classList.remove('active');
+            }
+        });
+    });
 
 </script>
