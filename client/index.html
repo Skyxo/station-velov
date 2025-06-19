@@ -359,21 +359,42 @@
         .forEach(({ marker }) => marker.addTo(map));
     }
 
+
+
+    /** Pour mettre à jour les couleurs du header **/
+    function setFilterColors(color) {
+      // header <h1>
+      const h1 = document.querySelector('header h1');
+      h1.style.backgroundColor = color;
+
+      // bouton "Calculer l’itinéraire"
+      const submitBtn = document.querySelector('.submit-button');
+      submitBtn.style.backgroundColor = color;
+
+      // titre <h2> du panneau itinéraire
+      const panelH2 = document.querySelector('.panel-header h2');
+      panelH2.parentNode.style.backgroundColor = color;
+    }
+
+
+
     /** Affiche toutes les stations */
     function showAll() {
       filterMarkers(_ => true);
+      setFilterColors('grey');
     }
 
     /** Affiche seulement les stations avec >=1 vélo électrique dispo */
     function showElectric() {
       filterMarkers(s => s.electricalBikes > 0);
+      setFilterColors('lightblue');
     }
 
     /** Affiche seulement les stations avec >=1 vélo mécanique dispo */
     function showMechanical() {
       filterMarkers(s => s.mechanicalBikes > 0);
+      setFilterColors('rgba(102, 255, 153)');
     }
-
 
     
     // Construit le HTML complet d’une popup de station.
