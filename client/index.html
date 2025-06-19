@@ -29,7 +29,14 @@
 
 
 <body onload="initialize_page()">
-    <h1>Stations Vélo'v</h1>
+    <header>
+        <h1>Stations Vélo'v</h1>
+        <div id="filters" style="margin-top:0.5em;">
+            <button onclick="showAll()">Toutes</button>
+            <button onclick="showElectric()">Électriques dispo</button>
+            <button onclick="showMechanical()">Mécaniques dispo</button>
+        </div>
+    </header>
 
     <button id="toggle-route-form" class="toggle-button">
         <span class="toggle-icon">&#9776;</span> Itinéraire
@@ -79,6 +86,9 @@
 <script>
     var map; // Déclarer la variable map globalement
     window.routeSegments = []; // Sert à stocker les routes GPS (éventuellemnt pour les enlever si on modifie le parcours)
+    window.stationMarkers = [];  // contient { marker: L.Marker, data: station }
+
+
 
     // Définition de markers colorées
     const redIcon = new L.Icon({
@@ -107,6 +117,15 @@
         popupAnchor: [1, -34],
         shadowSize: [41, 41]
     });
+
+    // Icône « standard » pour toutes les stations
+    const customIcon = L.icon({
+        iconUrl: 'images/marker-icon_v.png',
+        iconSize:   [45, 45],
+        iconAnchor: [22, 45],
+        popupAnchor:[ 0, -45]
+    });
+
 
 
     // Fonction de géocodage via Nominatim
@@ -301,34 +320,59 @@
 
 
     // charger les marqueurs avec leurs IDs
-    function load_data () {
-        var xhr = new XMLHttpRequest();
-        xhr.onload = function() {
-          if (this.status != 200) {
-            console.error("Erreur lors de la récupération des stations");
-            return;
-          }
-          
-          // Définir une icône personnalisée avec taille spécifique
-          var customIcon = L.icon({
-              iconUrl: 'images/marker-icon_v.png',
-              iconSize: [45, 45],
-              iconAnchor: [0, 0],
-              popupAnchor: [22, 0]
+    function load_data() {
+      fetch('/regions')
+        .then(r => r.json())
+        .then(data => {
+          // vider l’ancien tableau au cas où
+          window.stationMarkers.length = 0;
+
+          data.forEach(s => {
+            // crée le marker sans l'ajouter à la carte
+            const m = L.marker([s.lat, s.lon], { icon: customIcon });
+            m.stationData = s;
+            m.on('click', OnMarkerClick);
+            // stocker
+            window.stationMarkers.push({ marker: m, data: s });
           });
-          
-          var data = JSON.parse(this.responseText);
-          for (n = 0; n < data.length; n++) {
-            // Ajouter l'ID de la station pour pouvoir le récupérer lors du clic
-            L.marker([data[n].lat, data[n].lon], {icon: customIcon}).addTo(map)
-              .bindPopup(data[n].nom)
-              .addEventListener('click', OnMarkerClick)
-              .stationId = data[n].idstation || data[n].nom; // Utiliser idstation s'il existe, sinon nom
-          }
-        };
-        xhr.open('GET', '/regions', true);
-        xhr.send();
+
+          // au chargement initial, on affiche toutes
+          showAll();
+        })
+        .catch(err => console.error(err));
     }
+
+    /**
+     * Vide tous les markers, puis n'affiche que ceux
+     * pour lesquels test(data) renvoie true.
+     */
+    function filterMarkers(test) {
+      // on retire tout d'abord
+      window.stationMarkers.forEach(({ marker }) => {
+        if (map.hasLayer(marker)) map.removeLayer(marker);
+      });
+      // puis on ré-affiche selon le critère
+      window.stationMarkers
+        .filter(({ data }) => test(data))
+        .forEach(({ marker }) => marker.addTo(map));
+    }
+
+    /** Affiche toutes les stations */
+    function showAll() {
+      filterMarkers(_ => true);
+    }
+
+    /** Affiche seulement les stations avec >=1 vélo électrique dispo */
+    function showElectric() {
+      filterMarkers(s => s.electricalBikes > 0);
+    }
+
+    /** Affiche seulement les stations avec >=1 vélo mécanique dispo */
+    function showMechanical() {
+      filterMarkers(s => s.mechanicalBikes > 0);
+    }
+
+
     
     // Construit le HTML complet d’une popup de station.
     // @param {Object} station  Objet tel que renvoyé par /station/{id}
