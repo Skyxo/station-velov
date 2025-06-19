@@ -18,7 +18,7 @@ h1 {
   background-color: rgba(102, 255, 153);
   border-top: 3px solid rgba(255,255,255,0.6);
   border-bottom: 3px solid rgba(255,255,255,0.6);
-  margin-top: 0em;
+  margin-top: 0.5em;
   text-shadow: 3px 3px 3px rgba(0, 102, 51, 0.5);
   text-align: center;
   padding-top: 0.5em;
@@ -127,7 +127,6 @@ a.delete:hover {
 #velo_margot {
     width: 100%;
     max-width: 350px;
-    position: bottom;
     height: auto;        /* garde les proportions */
     display: block;
     margin: 0 auto;
@@ -182,7 +181,7 @@ a.delete:hover {
 /* Bouton pour afficher le panneau */
 .toggle-button {
     position: absolute;
-    top: 10px;
+    top: 35px;
     right: 10px;
     z-index: 900;
     background-color: white;
