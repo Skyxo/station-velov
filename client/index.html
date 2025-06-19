@@ -324,23 +324,19 @@
       fetch('/regions')
         .then(r => r.json())
         .then(data => {
-          // vider l’ancien tableau au cas où
           window.stationMarkers.length = 0;
-
           data.forEach(s => {
-            // crée le marker sans l'ajouter à la carte
             const m = L.marker([s.lat, s.lon], { icon: customIcon });
+            // lie l’objet station directement au marker
             m.stationData = s;
             m.on('click', OnMarkerClick);
-            // stocker
             window.stationMarkers.push({ marker: m, data: s });
           });
-
-          // au chargement initial, on affiche toutes
           showAll();
         })
-        .catch(err => console.error(err));
+        .catch(console.error);
     }
+
 
     /**
      * Vide tous les markers, puis n'affiche que ceux
@@ -442,16 +438,18 @@
 
 
     function OnMarkerClick(e) {
-        const id = e.target.stationId;
-        fetch('/station/' + id)
-            .then(res => res.json())
-            .then(station => {
-              const popup = e.target.getPopup();
-              popup.setContent(buildStationPopupContent(station))
-                   .update();
-              initRanges(id);
-            })
-            .catch(err => console.error(err));
+      const marker  = e.target;
+      const station = marker.stationData;
+      const id      = station.idstation;
+
+      fetch('/station/' + id)
+        .then(res => res.json())
+        .then(fullStation => {
+          // bind + open la popup avec ton HTML
+          marker.bindPopup(buildStationPopupContent(fullStation)).openPopup();
+          initRanges(id);
+        })
+        .catch(console.error);
     }
 
     // Fonction pour formater l'adresse
