@@ -1,19 +1,20 @@
-﻿/* fond de page */
+﻿/* Style général */
 html, body {
     margin: 0;
     padding: 0;
     height: 100%;
     width: 100%;
     overflow: hidden;
+    font-family: Trebuchet MS, sans-serif;
 }
 
-/* Style pour le header */
+/* Header et navigation */
 header {
     background-color: rgba(102, 255, 153);
     border-bottom: 3px solid rgba(255, 255, 255, 0.6);
     padding: 10px 0;
     width: 100%;
-    height: 60px; /* Hauteur fixe pour le header */
+    height: 60px;
     box-sizing: border-box;
     position: absolute;
     top: 0;
@@ -21,66 +22,30 @@ header {
     z-index: 1000;
 }
 
-/* Style pour le titre */
+.top-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    padding: 0 20px;
+    box-sizing: border-box;
+}
+
 header h1 {
     margin: 0;
     font-size: 1.8rem;
-    text-align: center;
     color: white;
     text-shadow: 3px 3px 3px rgba(0, 102, 51, 0.5);
     flex-grow: 1;
     text-align: center;
 }
 
-/* contenu de la page */
-body > * {   padding-left: 10px; }
-
-/* polices de caractères */
-body { font-family: Trebuchet MS, sans-serif; }
-
-/* positionnement des champs */
-label { display: block; }
-label span { display: inline-block; width: 5em; height: 1.5em; }
-
-/*
-input, textarea {
-  font-family: monospace;
-  padding: 2px 0.5em;
-  width: 5em;
-  font-size: 1.2em;
-  line-height: 1.33em;
-  color: #666;
-  margin-top: 5px;
-}
-.button {
-  border: 3px outset #444;
-  background-color: #888;
-  padding: 5px 0.5em;
-  border-radius: 3px;
-  display: inline-block;
-  margin: 1em 0;
-
-  color: #eee;
-  text-shadow: #000 -1px -1px 0;
-  right: calc(100% - 8em - 3px);
-}
-*/
-/*
-a {
-  text-decoration: none;
-  color: black;
-  cursor: pointer;
-}
-*/
-
-
-
+/* Filtres */
 #filters {
     display: flex;
     gap: 10px;
 }
 
-/* Boutons de filtre */
 #filters button {
     background-color: white;
     border: none;
@@ -99,105 +64,23 @@ a {
     vertical-align: middle;
 }
 
-#filters button:hover {
-    background-color: #f0f0f0;
-}
-
-a.delete:hover {
-  color: red;
-}
-
-#route-form {
-  max-width: 400px;
-  margin: 0 auto 2rem;
-  padding: 1rem;
-  background: #fff;
-  border-radius: 8px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-}
-
-#route-form .form-group {
-  display: flex;
-  flex-direction: column;
-  margin-bottom: 1rem;
-}
-
-#route-form label {
-  font-weight: bold;
-  margin-bottom: 0.3rem;
-}
-
-#route-form input[type="text"] {
-  padding: 0.5rem;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  font-size: 1rem;
-}
-
-#route-form button {
-  display: block;
-  width: 100%;
-  padding: 0.6rem;
-  font-size: 1rem;
-  text-transform: uppercase;
-  box-shadow: 3px 3px 3px rgba(0, 102, 51, 0.3);
-  background-color: rgba(102, 255, 153);
-  color: #fff;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-#route-form button:hover {
-  background-color: #005f80;
-}
-
+/* Map */
 #map {
     position: absolute;
-    top: 60px; /* Doit correspondre à la hauteur du header */
+    top: 60px;
     left: 0;
     right: 0;
     bottom: 0;
     width: 100%;
-    height: calc(100% - 60px); /* Calculer la hauteur restante */
+    height: calc(100% - 60px);
     z-index: 0;
 }
-#velo_margot {
-    width: 100%;
-    max-width: 350px;
-    height: auto;        /* garde les proportions */
-    display: block;
-    margin: 0 auto;
-    position: absolute;
-    bottom: 0;
-}
 
-/* Modification du style du formulaire pour l'adapter au panneau */
-#route-form {
-    padding: 20px;
-    margin: 0;
-    box-shadow: none;
-    border-radius: 0;
-    max-width: none;
-    overflow-y: auto;
-    flex-grow: 1;
-}
-
-/* Barre de navigation */
-.top-controls {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    width: 100%;
-    padding: 0 20px; /* Ajustez le padding pour les bords */
-    box-sizing: border-box;
-}
-
-/* Styles pour le panneau latéral */
+/* Panel latéral (itinéraire) */
 .side-panel {
     position: fixed;
     top: 0;
-    right: -400px; /* Caché par défaut */
+    right: -400px;
     width: 350px;
     height: 100%;
     background-color: white;
@@ -211,11 +94,9 @@ a.delete:hover {
 }
 
 .side-panel.active {
-    right: 0; /* Affiché quand la classe 'active' est présente */
+    right: 0;
 }
 
-
-/* Bouton pour afficher le panneau */
 .toggle-button {
     background-color: white;
     border: none;
@@ -233,13 +114,76 @@ a.delete:hover {
     font-size: 1.2em;
 }
 
-/* Bouton pour fermer le panneau */
 .close-button {
     background: none;
     border: none;
     font-size: 1.5rem;
     cursor: pointer;
-    color: white;
+    color: #333;
+}
+
+.panel-header {
+    flex: 0 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: rgba(102, 255, 153, 0.9);
+    padding: 12px 15px;
+    border-radius: 12px 12px 0 0;
+    z-index: 2;
+}
+
+.panel-header h2 {
+    margin: 0;
+    font-size: 1.2rem;
+    color: #333;
+}
+
+/* Formulaire itinéraire */
+#route-form {
+    padding: 20px;
+    margin: 0;
+    box-shadow: none;
+    border-radius: 0;
+    max-width: none;
+    overflow-y: auto;
+    flex-grow: 1;
+}
+
+#route-form .form-group {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 1rem;
+}
+
+#route-form label {
+    font-weight: bold;
+    margin-bottom: 0.3rem;
+}
+
+#route-form input[type="text"] {
+    padding: 0.5rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 1rem;
+}
+
+#route-form button {
+    display: block;
+    width: 100%;
+    padding: 0.6rem;
+    font-size: 1rem;
+    text-transform: uppercase;
+    box-shadow: 3px 3px 3px rgba(0, 102, 51, 0.3);
+    background-color: rgba(102, 255, 153);
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+#route-form button:hover {
+    background-color: #005f80;
 }
 
 .submit-button {
@@ -249,11 +193,16 @@ a.delete:hover {
     font-weight: bold;
 }
 
-.submit-button:hover {
-    background-color: #005f80;
+#velo_margot {
+    width: 100%;
+    height: auto;
+    display: block;
+    margin: 0 auto;
+    position: absolute;
+    bottom: 0;
 }
 
-/* Nouveaux styles pour la popup */
+/* Station popups */
 .station-popup {
     min-width: 250px;
 }
@@ -286,12 +235,12 @@ a.delete:hover {
 }
 
 .station-popup .status-open {
-    color: #4CAF50; /* Vert */
+    color: #4CAF50;
     font-weight: bold;
 }
 
 .station-popup .status-closed {
-    color: #F44336; /* Rouge */
+    color: #F44336;
     font-weight: bold;
 }
 
@@ -322,114 +271,37 @@ a.delete:hover {
     text-align: right;
 }
 
-.graph-popup-container {
-    max-width: 600px !important;
-    min-width: 400px;
-}
-
-.graph-popup {
-    padding: 10px 5px;
-}
-
-.graph-popup h3 {
-    margin: 0 0 10px 0;
-    color: #333;
-    border-bottom: 1px solid #ddd;
-    padding-bottom: 5px;
-}
-
-.graph-popup .date-info {
-    font-size: 12px;
-    color: #777;
-    margin-bottom: 10px;
-}
-
-.graph-popup img {
-    border: 1px solid #eee;
-    border-radius: 4px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-}
-
-/* Style pour les marqueurs proportionnels */
-.custom-div-icon {
-    background: none !important;
-    border: none !important;
-}
-
-.proportional-marker-container {
-    position: relative;
-    width: 45px;
-    height: 45px;
-}
-
-.mech-icon, .elec-icon {
-    background-repeat: no-repeat;
-    position: absolute;
-    top: 0;
-    left: 0;
-}
-
-/* Modification du panneau d'évolution pour utiliser flexbox */
+/* Panneau de graphique */
 #graph-panel {
     position: fixed;
-    bottom: -80vh; /* Commence hors de l'écran par le bas */
-    left: 2%; /* Assurez-vous que c'est bien 2% pour coller au bord gauche */
+    bottom: -80vh;
+    left: 2%;
     width: 500px;
-    max-height: 80vh; /* 80% de la hauteur de l'écran */
+    max-height: 80vh;
     background: white;
     box-shadow: 0 -2px 10px rgba(0,0,0,0.2);
-    border-radius: 12px 12px 0 0; /* Coins arrondis en haut */
+    border-radius: 12px 12px 0 0;
     transition: bottom 0.4s ease;
     z-index: 1000;
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    padding: 0; /* Supprime tout padding interne */
+    padding: 0;
 }
 
 #graph-panel.active {
-    bottom: 0; /* Glisse vers le haut pour devenir visible */
+    bottom: 0;
 }
 
 .bottom-panel {
     z-index: 1000;
 }
 
-/* Styles pour l'en-tête du panneau */
-/* En-tête fixe sans scrollbar */
-.panel-header {
-    flex: 0 0 auto; /* Taille fixe, ne rétrécit pas, ne grandit pas */
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background-color: rgba(102, 255, 153, 0.9);
-    padding: 12px 15px;
-    border-radius: 12px 12px 0 0;
-    z-index: 2; /* Pour rester au-dessus du contenu défilant */
-}
-
-.panel-header h2 {
-    margin: 0;
-    font-size: 1.2rem;
-    color: #333;
-}
-
-.close-button {
-    background: none;
-    border: none;
-    font-size: 24px;
-    cursor: pointer;
-    color: #333;
-}
-
-/* Styles pour le contenu du panneau */
 .panel-content {
-    flex: 1 1 auto; /* Prend tout l'espace disponible */
-    overflow-y: auto; /* Scrollbar uniquement si nécessaire */
-    overflow-x: hidden; /* Pas de scrollbar horizontale */
+    flex: 1 1 auto;
+    overflow-y: auto;
+    overflow-x: hidden;
     padding: 15px;
-    
-    /* Pour éviter les problèmes de marge qui dépassent */
     box-sizing: border-box;
 }
 
@@ -453,7 +325,53 @@ a.delete:hover {
     margin-bottom: 15px;
 }
 
-/* Styles pour les sélecteurs de date */
+/* Options de graphique */
+.graph-options {
+    background-color: #f5f5f5;
+    padding: 10px 15px;
+    border-radius: 5px;
+    margin-bottom: 15px;
+}
+
+.graph-options h4 {
+    margin-top: 0;
+    margin-bottom: 8px;
+    font-size: 14px;
+    color: #444;
+}
+
+.graph-options-checkboxes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.graph-options-checkboxes label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 13px;
+    color: #333;
+    cursor: pointer;
+}
+
+.update-button {
+    background-color: #4caf50;
+    color: white;
+    border: none;
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-size: 13px;
+    cursor: pointer;
+    margin-top: 8px;
+}
+
+.update-button:hover {
+    background-color: #45a049;
+}
+
+/* Sélecteurs de date */
 .date-selector {
     margin-top: 12px;
     background-color: #f9f9f9;
@@ -513,7 +431,6 @@ a.delete:hover {
     background-color: rgba(82, 235, 133, 0.9);
 }
 
-/* Styles pour l'affichage des dates dans le panneau de graphique */
 .date-range {
     line-height: 1.5;
     margin-bottom: 12px;
@@ -525,65 +442,114 @@ a.delete:hover {
     color: #333;
 }
 
-/* Styles pour les options du graphique */
-.graph-options {
-    background-color: #f5f5f5;
-    padding: 10px 15px;
-    border-radius: 5px;
-    margin-bottom: 15px;
-}
-
-.graph-options h4 {
-    margin-top: 0;
-    margin-bottom: 8px;
-    font-size: 14px;
-    color: #444;
-}
-
-.graph-options-checkboxes {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    margin-bottom: 10px;
-}
-
-.graph-options-checkboxes label {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    font-size: 13px;
-    color: #333;
-    cursor: pointer;
-}
-
-.update-button {
-    background-color: #4caf50;
-    color: white;
-    border: none;
-    padding: 6px 10px;
+/* Autocomplétion d'adresses */
+.address-suggestions {
+    background-color: white;
     border-radius: 4px;
-    font-size: 13px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    margin: 0;
+    padding: 0;
+    list-style-type: none;
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 10000;
+    border: 1px solid #ddd;
+}
+
+.suggestion-item {
+    padding: 10px 12px;
     cursor: pointer;
-    margin-top: 8px;
+    border-bottom: 1px solid #eee;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: background-color 0.2s;
 }
 
-.update-button:hover {
-    background-color: #45a049;
+.suggestion-item:hover {
+    background-color: #f0f7ff;
 }
 
-/* Style pour les marqueurs à taille variable */
+.suggestion-item:last-child {
+    border-bottom: none;
+}
+
+#start-address, #end-address {
+    position: relative;
+    z-index: 9999;
+}
+
+/* Sélection sur la carte */
+.map-select-button {
+    width: 100%;
+    padding: 6px;
+    margin-top: 5px;
+    background-color: #f0f0f0;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    text-align: center;
+    transition: background-color 0.2s;
+}
+
+.map-select-button:hover {
+    background-color: #e0e0e0;
+}
+
+.selecting-point {
+    cursor: crosshair !important;
+}
+
+.selection-notification {
+    position: fixed;
+    top: 70px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 10px 15px;
+    border-radius: 4px;
+    z-index: 1000;
+    font-weight: bold;
+    pointer-events: none;
+}
+
+.reset-button {
+    width: 100%;
+    padding: 6px;
+    margin-top: 5px;
+    background-color: #f0f0f0;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    text-align: center;
+    transition: background-color 0.2s;
+}
+
+.reset-button:hover {
+    background-color: #ff3333;
+}
+
+input[data-has-exact-coordinates="true"] {
+    border: 2px solid #66ff99;
+    background-color: #f0fff0;
+}
+
+/* Marqueurs de carte */
 .custom-div-icon {
     background: none !important;
     border: none !important;
 }
 
-/* Ajout d'une ombre pour mieux distinguer les grandes icônes */
 .proportional-marker-container {
     filter: drop-shadow(0 2px 2px rgba(0,0,0,0.3));
+    position: relative;
 }
 
-/* Effet de surbrillance au survol pour une meilleure UX */
 .leaflet-marker-icon:hover {
-    filter: brightness(1.1);
-    transition: filter 0.3s ease;
+    transform: scale(1.2); /* Agrandit l'icône de 20% */
+    transition: transform 0.2s ease;
+    z-index: 1000 !important; /* Assure que l'icône agrandie s'affiche au-dessus des autres */
 }

@@ -1,42 +1,24 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-
-    <!-- Routing Machine JS -->
     <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
-
     <title>Stations Vélo'v</title>
-
-    <!-- Leaflet CSS -->
-    <link
-        rel="stylesheet"
-        href="https://unpkg.com/leaflet/dist/leaflet.css"
-    />
-
-    <!-- Routing Machine CSS -->
-    <link
-        rel="stylesheet"
-        href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css"
-    />
-
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css" />
     <link rel="stylesheet" href="style.css" />
-
     <meta charset="utf-8">
 </head>
-
-
 
 <body onload="initialize_page()">
     <header>
         <nav class="top-controls">
             <div id="filters">
-                <button onclick="showAll()">Toutes</button>
-                <button onclick="showElectric()"><img src="images/lightning.png" alt="Vélos électriques"></button>
-                <button onclick="showMechanical()"><img src="images/jambe.png" alt="Vélos mécaniques"></button>
-                <button onclick="showEmpty()"><img src="images/empty.png" alt="Stations vides" style="height:20px;"></button>
-                <button onclick="showClosed()"><img src="images/closed.png" alt="Stations fermées" style="height:20px;"></button>
+                <button onclick="showStations('all')">Toutes</button>
+                <button onclick="showStations('electric')"><img src="images/lightning.png" alt="Vélos électriques"></button>
+                <button onclick="showStations('mechanical')"><img src="images/jambe.png" alt="Vélos mécaniques"></button>
+                <button onclick="showStations('empty')"><img src="images/empty.png" alt="Stations vides" style="height:20px;"></button>
+                <button onclick="showStations('closed')"><img src="images/closed.png" alt="Stations fermées" style="height:20px;"></button>
             </div>
             <h1>Stations Vélo'v</h1>
             <button id="toggle-route-form" class="toggle-button">
@@ -47,7 +29,6 @@
 
     <div id="map"></div>
 
-    <!-- formulaire GPS -->
     <div id="route-panel" class="side-panel">
         <div class="panel-header">
             <h2>Calculer un itinéraire</h2>
@@ -55,21 +36,29 @@
         </div>
         <form id="route-form">
             <div class="form-group">
-                <label for="start-address">Adresse de départ</label>
-                <input type="text" id="start-address" name="start" placeholder="Ex : 10 Rue de la République, Lyon" required>
+                <label for="start-address">Adresse de départ</label>                
+                    <input type="text" id="start-address" name="start" placeholder="Ex : 10 Rue de la République, Lyon" required>
+                <button type="button" id="select-start-button" class="map-select-button">Sélectionner sur la carte</button>
             </div>
             <div class="form-group">
-                <label for="end-address">Adresse d'arrivée</label>
-                <input type="text" id="end-address" name="end" placeholder="Ex : 5 Place Bellecour, Lyon" required>
+                <label for="end-address">Adresse d'arrivée</label>                
+                    <input type="text" id="end-address" name="end" placeholder="Ex : 5 Place Bellecour, Lyon" required>
+                <button type="button" id="select-end-button" class="map-select-button">Sélectionner sur la carte</button>
             </div>
-            <button type="submit" class="submit-button">Calculer l'itinéraire</button>
-            
+            <div class="form-group">
+                <label for="bike-type">Type de vélo :</label>
+                <select id="bike-type" name="bike-type">
+                    <option value="any">Peu importe</option>
+                    <option value="mechanical">Mécanique</option>
+                    <option value="electric">Électrique</option>
+                </select>
+            </div>
+            <button type="button" id="reset-route-button" class="reset-button">Réinitialiser</button>
+            <button type="button" id="calculate-route-button" class="submit-button">Calculer l'itinéraire</button>
             <img id="velo_margot" src="images/velo1.jpg">
-            
         </form>
     </div>
 
-    <!-- Panneau pour afficher les graphiques (glisse depuis le bas à gauche) -->
     <div id="graph-panel" class="bottom-panel">
         <div class="panel-header">
             <h2>Évolution de la station</h2>
@@ -83,7 +72,6 @@
                 <img id="graph-image" alt="Graphique d'occupation" style="width:100%; height:auto;">
             </div>
             
-            <!-- Ajout des options de séries à afficher -->
             <div class="graph-options">
                 <h4>Données à afficher :</h4>
                 <div class="graph-options-checkboxes">
@@ -96,455 +84,236 @@
             </div>
         </div>
     </div>
-
 </body>
 
-
-
 <script>
-    // Ajouter ces variables globales en haut du script
-    var maxBikesCount = 0; // Maximum pour tous vélos confondus
-    var maxElectricCount = 0; // Maximum pour les vélos électriques
-    var maxMechanicalCount = 0; // Maximum pour les vélos mécaniques
-    var currentDisplayMode = 'all'; // Mode d'affichage actuel ('all', 'electric', 'mechanical')
-    
-    var map; // Déclarer la variable map globalement
-    window.routeSegments = []; // Sert à stocker les routes GPS (éventuellemnt pour les enlever si on modifie le parcours)
-    window.stationMarkers = [];  // contient { marker: L.Marker, data: station }
+    // Variables globales
+    let startMarker = null;
+    let endMarker = null;
+    let selectionMode = null;
+    let selectionNotification = null;
+    let map;
+    let stations = [];
+    let maxBikesCount = 0;
+    let maxElectricCount = 0;
+    let maxMechanicalCount = 0;
+    let currentDisplayMode = 'all';
+    window.routeSegments = [];
+    window.stationMarkers = [];
 
-    // Icônes pour les différents types de vélos
-
-    const closedStationIcon = L.icon({
-        iconUrl: 'images/marker-icon_v_closed.png',
-        iconSize: [45, 45],
-        iconAnchor: [22, 45],
-        popupAnchor: [0, -45]
+    // Icônes
+    const redIcon = L.icon({
+        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+        iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
     });
 
-    const emptyStationIcon = L.icon({
-        iconUrl: 'images/marker-icon_v_empty.png',
-        iconSize: [45, 45],
-        iconAnchor: [22, 45],
-        popupAnchor: [0, -45]
+    const greenIcon = L.icon({
+        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+        iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
     });
 
-    const electricBikeIcon = L.icon({
-        iconUrl: 'images/marker-icon_v_elec.png',
-        iconSize: [45, 45],
-        iconAnchor: [22, 45],
-        popupAnchor: [0, -45]
-    });
-
-    const mechanicalBikeIcon = L.icon({
-        iconUrl: 'images/marker-icon_v_meca.png',
-        iconSize: [45, 45],
-        iconAnchor: [22, 45],
-        popupAnchor: [0, -45]
-    });
-
-    const customIcon = L.icon({
-        iconUrl: 'images/marker-icon_v.png',
-        iconSize: [45, 45],
-        iconAnchor: [22, 45],
-        popupAnchor: [0, -45]
-    });
-
-
-    // Définition de markers colorées
-    const redIcon = new L.Icon({
-        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
-        shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
-        iconSize: [25, 41],
-        iconAnchor: [12, 41],
-        popupAnchor: [1, -34],
-        shadowSize: [41, 41]
-    });
-
-    const greenIcon = new L.Icon({
-        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png',
-        shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
-        iconSize: [25, 41],
-        iconAnchor: [12, 41],
-        popupAnchor: [1, -34],
-        shadowSize: [41, 41]
-    });
-
-    const blueIcon = new L.Icon({
+    const blueIcon = L.icon({
         iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png',
         shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
-        iconSize: [25, 41],
-        iconAnchor: [12, 41],
-        popupAnchor: [1, -34],
-        shadowSize: [41, 41]
+        iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
     });
 
-
-
-
-    function calculateIconSize(station, mode) {
-        // Taille minimale et maximale pour les icônes (en pixels)
-        const minSize = 30;
-        const maxSize = 60;
+    // Initialisation de la page
+    function initialize_page() {
+        map = L.map('map').setView([45.75, 4.85], 13);
         
-        let bikeCount = 0;
-        let maxCount = 0;
+        L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
         
-        // Sélectionner le bon compteur en fonction du mode
-        switch (mode) {
-            case 'electric':
-                bikeCount = station.electricalBikes || 0;
-                maxCount = maxElectricCount;
-                break;
-            case 'mechanical':
-                bikeCount = station.mechanicalBikes || 0;
-                maxCount = maxMechanicalCount;
-                break;
-            case 'empty':
-                // Pour le mode empty, on utilise les places libres (stands) comme métrique
-                bikeCount = station.stands || 0;
-                maxCount = Math.max(...window.stations.map(s => s.stands || 0));
-                break;
-            case 'closed':
-                // Pour les stations fermées, on utilise la capacité totale comme métrique
-                bikeCount = station.capacity || station.nbbornettes || 0;
-                maxCount = Math.max(...window.stations.map(s => s.capacity || s.nbbornettes || 0));
-                break;
-            case 'all':
-            default:
-                bikeCount = station.bikes || 0;
-                maxCount = maxBikesCount;
+        map.on('click', handleMapClick);
+        
+        fetch('/center')
+            .then(response => response.json())
+            .then(center => map.setView([center.lat, center.lon], 14))
+            .catch(err => console.error("Erreur chargement du centre:", err));
+        
+        loadStations();
+        setupEventListeners();
+    }
+
+    // Chargement des stations
+    function loadStations() {
+        fetch('/stations_full')
+            .then(response => response.json())
+            .then(data => {
+                stations = data;
+                window.stations = data;
+                
+                // Calculer les maximums
+                maxBikesCount = Math.max(...data.map(s => s.bikes || 0));
+                maxElectricCount = Math.max(...data.map(s => s.electricalBikes || 0));
+                maxMechanicalCount = Math.max(...data.map(s => s.mechanicalBikes || 0));
+                
+                // Créer les marqueurs
+                data.forEach(station => {
+                    const marker = L.marker([station.lat, station.lon], {
+                        icon: getStationIcon(station, 'all')
+                    });
+                    
+                    marker.stationData = station;
+                    marker.stationId = station.idstation;
+                    marker.on('click', function(e) {
+                        const popup = buildStationPopupContent(e.target.stationData);
+                        e.target.unbindPopup().bindPopup(popup).openPopup();
+                        initRanges(e.target.stationData.idstation);
+                    });
+                    
+                    window.stationMarkers.push({marker, data: station});
+                });
+                
+                showStations('all');
+            })
+            .catch(err => console.error("Erreur chargement des stations:", err));
+    }
+
+    // Gestion de la sélection de points sur la carte
+    function activateSelectionMode(mode) {
+        deactivateSelectionMode();
+        selectionMode = mode;
+        document.getElementById('map').classList.add('selecting-point');
+        
+        const message = mode === 'start' 
+            ? 'Cliquez sur la carte pour sélectionner un point de départ'
+            : 'Cliquez sur la carte pour sélectionner un point d\'arrivée';
+        
+        selectionNotification = document.createElement('div');
+        selectionNotification.className = 'selection-notification';
+        selectionNotification.textContent = message;
+        document.body.appendChild(selectionNotification);
+    }
+
+    function deactivateSelectionMode() {
+        selectionMode = null;
+        document.getElementById('map').classList.remove('selecting-point');
+        if (selectionNotification) {
+            selectionNotification.remove();
+            selectionNotification = null;
         }
-        
-        // Si aucun vélo disponible ou pas de maximum, taille minimale
-        if (bikeCount <= 0 || maxCount <= 0) {
-            return [minSize, minSize];
-        }
-        
-        // Calculer la taille proportionnelle par rapport au maximum du mode actuel
-        const sizeRatio = bikeCount / maxCount;
-        const size = Math.max(minSize, Math.min(maxSize, minSize + (maxSize - minSize) * sizeRatio));
-        
-        return [size, size];
-    }
-    
-
-
-    /**
-     * Crée une icône Leaflet avec une taille variable selon le nombre de vélos
-     * @param {object} station - Données de la station
-     * @param {string} iconUrl - URL de l'image d'icône
-     * @param {string} [mode] - Mode d'affichage ('all', 'electric', 'mechanical')
-     * @returns {L.Icon} - Icône Leaflet configurée
-     */
-    function createDynamicIcon(station, iconUrl, mode = currentDisplayMode) {
-        const iconSize = calculateIconSize(station, mode);
-        
-        return L.icon({
-            iconUrl: iconUrl,
-            iconSize: iconSize,
-            iconAnchor: [iconSize[0]/2, iconSize[1]],
-            popupAnchor: [0, -iconSize[1]]
-        });
     }
 
-
-    /**
-     * Crée une icône composite avec une taille variable selon le nombre de vélos
-     * @param {object} station - Données de la station
-     * @param {string} [mode] - Mode d'affichage ('all', 'electric', 'mechanical')
-     * @returns {L.DivIcon} - Icône Leaflet composite
-     */
-    function createProportionalDynamicIcon(station, mode = currentDisplayMode) {
-        const electricCount = station.electricalBikes || 0;
-        const mechanicalCount = station.mechanicalBikes || 0;
+    function handleMapClick(e) {
+        if (!selectionMode) return;
         
-        // Calculer la taille de l'icône en fonction du mode actuel
-        const iconSize = calculateIconSize(station, mode);
+        const latlng = e.latlng;
         
-        // Calculer la proportion de vélos électriques
-        const totalBikes = electricCount + mechanicalCount;
-        const electricRatio = totalBikes > 0 ? electricCount / totalBikes : 0;
-        
-        // Créer un élément div pour contenir les deux icônes superposées
-        const container = document.createElement('div');
-        container.className = 'proportional-marker-container';
-        container.style.position = 'relative';
-        container.style.width = `${iconSize[0]}px`;
-        container.style.height = `${iconSize[1]}px`;
-        
-        // Élément pour l'icône mécanique (arrière-plan complet)
-        const mechDiv = document.createElement('div');
-        mechDiv.className = 'mech-icon';
-        mechDiv.style.position = 'absolute';
-        mechDiv.style.top = '0';
-        mechDiv.style.left = '0';
-        mechDiv.style.width = `${iconSize[0]}px`;
-        mechDiv.style.height = `${iconSize[1]}px`;
-        mechDiv.style.backgroundImage = 'url(images/marker-icon_v_meca.png)';
-        mechDiv.style.backgroundSize = 'cover';
-        
-        // Élément pour l'icône électrique (partie gauche seulement)
-        const elecDiv = document.createElement('div');
-        elecDiv.className = 'elec-icon';
-        elecDiv.style.position = 'absolute';
-        elecDiv.style.top = '0';
-        elecDiv.style.left = '0';
-        elecDiv.style.width = Math.round(iconSize[0] * electricRatio) + 'px'; // Rogner à la proportion
-        elecDiv.style.height = `${iconSize[1]}px`;
-        elecDiv.style.backgroundImage = 'url(images/marker-icon_v_elec.png)';
-        elecDiv.style.backgroundSize = 'cover';
-        elecDiv.style.overflow = 'hidden';
-        
-        // Assembler les éléments
-        container.appendChild(mechDiv);
-        container.appendChild(elecDiv);
-        
-        // Créer l'icône Leaflet avec le HTML personnalisé
-        return L.divIcon({
-            html: container,
-            className: 'custom-div-icon',
-            iconSize: iconSize,
-            iconAnchor: [iconSize[0]/2, iconSize[1]],
-            popupAnchor: [0, -iconSize[1]]
-        });
-    }
-
-
-    /**
-     * Crée une icône composite représentant la proportion de vélos électriques et mécaniques
-     * @param {number} electricCount - Nombre de vélos électriques
-     * @param {number} mechanicalCount - Nombre de vélos mécaniques
-     * @returns {L.Icon} Icône Leaflet
-     */
-    function createProportionalIcon(electricCount, mechanicalCount) {
-        // S'il n'y a aucun vélo, on utilise l'icône par défaut
-        if (electricCount + mechanicalCount === 0) {
-            return customIcon;
-        }
-        
-        // Calculer la proportion de vélos électriques
-        const total = electricCount + mechanicalCount;
-        const electricRatio = electricCount / total;
-        
-        // Créer un élément div pour contenir les deux icônes superposées
-        const container = document.createElement('div');
-        container.className = 'proportional-marker-container';
-        container.style.position = 'relative';
-        container.style.width = '45px';
-        container.style.height = '45px';
-        
-        // Élément pour l'icône mécanique (arrière-plan complet)
-        const mechDiv = document.createElement('div');
-        mechDiv.className = 'mech-icon';
-        mechDiv.style.position = 'absolute';
-        mechDiv.style.top = '0';
-        mechDiv.style.left = '0';
-        mechDiv.style.width = '45px';
-        mechDiv.style.height = '45px';
-        mechDiv.style.backgroundImage = 'url(images/marker-icon_v_meca.png)';
-        mechDiv.style.backgroundSize = 'cover';
-        
-        // Élément pour l'icône électrique (partie gauche seulement)
-        const elecDiv = document.createElement('div');
-        elecDiv.className = 'elec-icon';
-        elecDiv.style.position = 'absolute';
-        elecDiv.style.top = '0';
-        elecDiv.style.left = '0';
-        elecDiv.style.width = Math.round(45 * electricRatio) + 'px'; // Rogner à la proportion
-        elecDiv.style.height = '45px';
-        elecDiv.style.backgroundImage = 'url(images/marker-icon_v_elec.png)';
-        elecDiv.style.backgroundSize = 'cover';
-        elecDiv.style.overflow = 'hidden';
-        
-        // Assembler les éléments
-        container.appendChild(mechDiv);
-        container.appendChild(elecDiv);
-        
-        // Créer l'icône Leaflet avec le HTML personnalisé
-        return L.divIcon({
-            html: container,
-            className: 'custom-div-icon',
-            iconSize: [45, 45],
-            iconAnchor: [22, 45],
-            popupAnchor: [0, -45]
-        });
-    }
-
-
-    /**
-     * Détermine quelle icône utiliser pour une station en fonction de son statut et du mode d'affichage
-     * @param {object} station - Données de la station
-     * @param {string} mode - Mode d'affichage ('all', 'electric', 'mechanical', 'empty', 'closed')
-     * @returns {L.Icon|L.DivIcon} - Icône Leaflet appropriée
-     */
-    function getMarkerIcon(station, mode) {
-        // Vérifier si la station est fermée
-        const isClosed = station.status !== 'OPEN';
-        
-        // Informations sur les vélos disponibles
-        const electricCount = station.electricalBikes || 0;
-        const mechanicalCount = station.mechanicalBikes || 0;
-        const totalBikes = electricCount + mechanicalCount;
-        const isEmpty = totalBikes === 0;
-        
-        // Logique d'icône selon le mode d'affichage
-        switch (mode) {
-            case 'all':
-                // En mode "Toutes"
-                if (isClosed) {
-                    return createDynamicIcon(station, 'images/marker-icon_v_closed.png', mode);
-                } else if (isEmpty) {
-                    return createDynamicIcon(station, 'images/marker-icon_v_empty.png', mode);
-                } else if (electricCount > 0 && mechanicalCount > 0) {
-                    return createProportionalDynamicIcon(station, mode);
-                } else if (electricCount > 0) {
-                    return createDynamicIcon(station, 'images/marker-icon_v_elec.png', mode);
-                } else {
-                    return createDynamicIcon(station, 'images/marker-icon_v_meca.png', mode);
-                }
+        if (selectionMode === 'start') {
+            if (startMarker) map.removeLayer(startMarker);
             
-            case 'electric':
-                // En mode "Vélos électriques"
-                if (isClosed) {
-                    return createDynamicIcon(station, 'images/marker-icon_v_closed.png', mode);
-                } else if (electricCount > 0) {
-                    return createDynamicIcon(station, 'images/marker-icon_v_elec.png', mode);
-                } else {
-                    return createDynamicIcon(station, 'images/marker-icon_v_empty.png', mode);
-                }
-                
-            case 'mechanical':
-                // En mode "Vélos mécaniques"
-                if (isClosed) {
-                    return createDynamicIcon(station, 'images/marker-icon_v_closed.png', mode);
-                } else if (mechanicalCount > 0) {
-                    return createDynamicIcon(station, 'images/marker-icon_v_meca.png', mode);
-                } else {
-                    return createDynamicIcon(station, 'images/marker-icon_v_empty.png', mode);
-                }
-                
-            case 'empty':
-                // En mode "Stations vides" - toujours l'icône vide
-                return createDynamicIcon(station, 'images/marker-icon_v_empty.png', mode);
-                
-            case 'closed':
-                // En mode "Stations fermées" - toujours l'icône fermée
-                return createDynamicIcon(station, 'images/marker-icon_v_closed.png', mode);
-                
-            default:
-                // Mode par défaut
-                return createDynamicIcon(station, 'images/marker-icon_v.png', mode);
+            startMarker = L.marker(latlng, {
+                icon: greenIcon,
+                draggable: true
+            }).addTo(map);
+            
+              startMarker.on('dragend', function() {
+                const newPos = startMarker.getLatLng();
+                storeCoordinates('start-address', newPos);
+                reverseGeocode(newPos, 'start-address');
+            });
+            
+            storeCoordinates('start-address', latlng);
+            reverseGeocode(latlng, 'start-address');
+        } 
+        else if (selectionMode === 'end') {
+            if (endMarker) map.removeLayer(endMarker);
+            
+            endMarker = L.marker(latlng, {
+                icon: redIcon,
+                draggable: true
+            }).addTo(map);
+            
+            endMarker.on('dragend', function() {
+                const newPos = endMarker.getLatLng();
+                storeCoordinates('end-address', newPos);
+                reverseGeocode(newPos, 'end-address');
+            });
+            
+            storeCoordinates('end-address', latlng);
+            reverseGeocode(latlng, 'end-address');
         }
-    }
-
-
-    // Fonction de géocodage via Nominatim
-    async function geocode(address) {
-        const url = 'https://nominatim.openstreetmap.org/search'
-                  + '?format=json'
-                  + '&limit=1'
-                  + `&q=${encodeURIComponent(address)}`;
-        const res = await fetch(url, {
-            headers: { 'Accept-Language': 'fr' }
-        });
-        const data = await res.json();
-        if (!data.length) {
-            throw new Error(`Adresse non trouvée : "${address}"`);
-        }
-        return [ parseFloat(data[0].lat), parseFloat(data[0].lon) ];
-    }
-
-    // Charger toutes les stations une seule fois
-    let stations = [];
-    async function loadStations() {
-        const res = await fetch('/regions');
-        if (!res.ok) throw new Error('Impossible de charger les stations');
-        stations = await res.json();
-    }
-    loadStations();
-
-    // Calcul de la distance (haversine)
-    function haversine([lat1, lon1], [lat2, lon2]) {
-        const R = 6371e3; // mètres
-        const phi1 = lat1 * Math.PI/180;
-        const phi2 = lat2 * Math.PI/180;
-        const deltaPhi = (lat2-lat1) * Math.PI/180;
-        const deltaLanda = (lon2-lon1) * Math.PI/180;
-        const a = Math.sin(deltaPhi/2)**2 + Math.cos(phi1)*Math.cos(phi2)*Math.sin(deltaLanda/2)**2;
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-        return R * c;
-    }
-
-    // Recherche de la station la plus proche
-    function findNearest(coord) {
-        let minDist = Infinity;
-        let nearest = null;
-        for (const s of stations) {
-            const d = haversine(coord, [s.lat, s.lon]);
-            if (d < minDist) {
-                minDist = d;
-                nearest = s;
-            }
-        }
-        return nearest;
-    }
-
-
-    // Gestionnaire du formulaire
-    document.getElementById('route-form').addEventListener('submit', async e => {
-        e.preventDefault();
-        const startAddr = document.getElementById('start-address').value.trim();
-        const endAddr   = document.getElementById('end-address').value.trim();
-
-        try {
-            // géocodage en parallèle
-            const [startCoord, endCoord] = await Promise.all([
-                geocode(startAddr),
-                geocode(endAddr)
-        ]);
-
-        // Marker adresses
-        L.marker(startCoord, { icon: greenIcon }).addTo(map).bindPopup('Vous êtes ici').openPopup();
-        L.marker(endCoord,   { icon: redIcon   }).addTo(map).bindPopup('Arrivée prévue');
-
-        // Station la plus proche de chaque extrémité
-        const stStart = findNearest(startCoord);
-        const stEnd   = findNearest(endCoord);
-
-        // Supprime les marqueurs de ces stations préexistants
-        map.eachLayer(layer => {
-            if (layer instanceof L.Marker && (layer.stationId === stStart.idstation || layer.stationId === stEnd.idstation)) {
-                map.removeLayer(layer);
-            }
-        });
-
-        // Ajoute les nouveaux marqueurs bleu avec popup buildée
-        [ {info: stStart, label: 'Station de départ'}, {info: stEnd, label: 'Station d’arrivée'} ]
-        .forEach(({info, label}) => {
-            const m = L.marker([info.lat, info.lon], { icon: blueIcon }).addTo(map);
-            fetch('/station/' + info.idstation)
-                .then(res => res.json())
-                .then(station => m.bindPopup(buildStationPopupContent(station, label)).openPopup())
-                .catch(err => console.error(err));
-        });
-
         
-        //Section servant à tracer les routes GPS
+        deactivateSelectionMode();
+    }    function storeCoordinates(inputId, latlng) {
+        const inputElement = document.getElementById(inputId);
+        inputElement.dataset.exactLat = latlng.lat;
+        inputElement.dataset.exactLng = latlng.lng || latlng.lon;
+        inputElement.dataset.hasExactCoordinates = "true";
+    }
 
-        // Supression des anciens tracés s'il y en a
-        window.routeSegments.forEach(line => map.removeLayer(line));
-        window.routeSegments.length = 0;
+    // Calcul d'itinéraire
+    function calculateItinerary(e) {
+        if (e) e.preventDefault();
+        
+        const startInput = document.getElementById('start-address');
+        const endInput = document.getElementById('end-address');
+        const startAddress = startInput.value;
+        const endAddress = endInput.value;
+        
+        if (!startAddress || !endAddress) {
+            alert("Veuillez spécifier une adresse de départ et d'arrivée.");
+            return;
+        }
+        
+        if (startInput.dataset.hasExactCoordinates === "true" && 
+            endInput.dataset.hasExactCoordinates === "true" && 
+            startMarker && endMarker) {
+            calculateRouteFromMarkers();
+        } else {
+            if (startMarker) {
+                map.removeLayer(startMarker);
+                startMarker = null;
+                startInput.removeAttribute('data-has-exact-coordinates');
+                document.getElementById('reset-start-button').style.display = 'none';
+            }
+            if (endMarker) {
+                map.removeLayer(endMarker);
+                endMarker = null;
+                endInput.removeAttribute('data-has-exact-coordinates');
+                document.getElementById('reset-end-button').style.display = 'none';
+            }
+            calculateRoute(startAddress, endAddress);
+        }
+    }
 
-        // Instancie le routeur OSRM
+    function calculateRouteFromMarkers() {
+        if (!startMarker || !endMarker) return;
+        
+        const startPos = startMarker.getLatLng();
+        const endPos = endMarker.getLatLng();
+        
+        // Nettoyage des routes précédentes
+        clearRoutes();
+        
+        // Stations les plus proches
+        const startCoord = [startPos.lat, startPos.lng];
+        const endCoord = [endPos.lat, endPos.lng];
+        const stStart = findNearest(startCoord, true); // Station de départ avec vélos disponibles
+        const stEnd = findNearest(endCoord, false);    // Station d'arrivée
+        
+        // Vérifier si la station de départ a été trouvée
+        if (stStart.idstation === "none") {
+            alert(stStart.nom);
+            return;
+        }
+        
+        // Calcul des itinéraires
         const router = L.Routing.osrmv1({
-            serviceUrl: 'https://router.project-osrm.org/route/v1'
+            serviceUrl: 'https://router.project-osrm.org/route/v1',
+            profile: 'cycling',
+            language: 'fr'
         });
-
-        //Création de trois segments (départ - station / station de départ - station arrivée / station arrivée - arrivée)
+        
         const segments = [
             {
                 waypoints: [
-                    L.Routing.waypoint(L.latLng(startCoord)),
+                    L.Routing.waypoint(L.latLng(startPos.lat, startPos.lng)),
                     L.Routing.waypoint(L.latLng(stStart.lat, stStart.lon))
                 ],
                 color: 'green'
@@ -552,245 +321,392 @@
             {
                 waypoints: [
                     L.Routing.waypoint(L.latLng(stStart.lat, stStart.lon)),
-                    L.Routing.waypoint(L.latLng(stEnd.lat,   stEnd.lon))
+                    L.Routing.waypoint(L.latLng(stEnd.lat, stEnd.lon))
                 ],
                 color: 'blue'
             },
             {
                 waypoints: [
-                    L.Routing.waypoint(L.latLng(stEnd.lat,   stEnd.lon)),
-                    L.Routing.waypoint(L.latLng(endCoord))
+                    L.Routing.waypoint(L.latLng(stEnd.lat, stEnd.lon)),
+                    L.Routing.waypoint(L.latLng(endPos.lat, endPos.lng))
                 ],
                 color: 'red'
             }
         ];
-
-        // Pour chaque segment, appelle le routeur, trace la ligne, et mémorise
-        segments.forEach(({ waypoints, color }) => {
+        
+        segments.forEach(({waypoints, color}) => {
             router.route(waypoints, (err, routes) => {
-                if (err || !routes.length) {
-                    return console.error('Erreur routage', err);
-                }
+                if (err || !routes.length) return console.error('Erreur routage', err);
+                
                 const line = L.Routing.line(routes[0], {
-                    styles: [{ color, weight: 4, opacity: 0.8 }]
+                    styles: [{color, weight: 4, opacity: 0.8}]
                 }).addTo(map);
+                
                 window.routeSegments.push(line);
             });
         });
-
-        // On recadre la carte sur l’intégralité du trajet
+        
+        // Ajuster la vue
         const bounds = L.latLngBounds([
-            startCoord,
+            [startPos.lat, startPos.lng],
             [stStart.lat, stStart.lon],
-            [stEnd.lat,   stEnd.lon],
-            endCoord
+            [stEnd.lat, stEnd.lon],
+            [endPos.lat, endPos.lng]
         ]);
-        map.fitBounds(bounds, { padding: [50, 50] });
-
-
-
-        } catch (err) {
-            alert(err.message);
-            console.error(err);
-        };
-    });
-
-
-
-    // Fonction d'initialisation de la page
-    function initialize_page() {
-        // Initialiser la carte avec un centre temporaire
-        map = L.map('map').setView([45.75, 4.85], 13);
-        
-        // Ajouter les tuiles OpenStreetMap
-        L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
-        }).addTo(map);
-        
-        // Charger le centre de la carte puis les données
-        initialize_map();
-        load_data();
+        map.fitBounds(bounds, {padding: [50, 50]});
     }
-    
-    // Récupérer le centre géographique des stations et centrer la carte
-    function initialize_map() {
-        var xhr = new XMLHttpRequest();
-        xhr.onload = function() {
-            if (this.status != 200) {
-                console.error("Erreur lors de la récupération du centre des stations");
+
+    async function calculateRoute(startAddress, endAddress) {
+        try {
+            clearRoutes();
+            
+            // Géocodage en parallèle
+            const [startCoord, endCoord] = await Promise.all([
+                geocode(startAddress),
+                geocode(endAddress)
+            ]);            // Stations les plus proches
+            const stStart = findNearest(startCoord, true); // Station de départ avec vélos disponibles
+            const stEnd = findNearest(endCoord, false);    // Station d'arrivée
+
+            // Vérifier si la station de départ a été trouvée
+            if (stStart.idstation === "none") {
+                alert(stStart.nom);
                 return;
             }
-            var center = JSON.parse(this.responseText);
-            // Centrer la carte sur le centre calculé
-            map.setView([center.lat, center.lon], 14);
-        };
-        xhr.open('GET', '/center', true);
-        xhr.send();
+
+            // Supprime les marqueurs de ces stations préexistants
+            map.eachLayer(layer => {
+                if (layer instanceof L.Marker && (layer.stationId === stStart.idstation || layer.stationId === stEnd.idstation)) {
+                    map.removeLayer(layer);
+                }
+            });
+            
+            // Ajoute les nouveaux marqueurs bleu avec popup buildée
+            [ {info: stStart, label: 'Station de départ'}, {info: stEnd, label: 'Station d\'arrivée'} ].forEach(({info, label}) => {
+                const m = L.marker([info.lat, info.lon], { icon: blueIcon }).addTo(map);
+                m.stationId = info.idstation; // Stocker l'ID pour pouvoir retrouver ce marqueur plus tard
+                fetch('/station/' + info.idstation)
+                    .then(res => res.json())
+                    .then(station => m.bindPopup(buildStationPopupContent(station, label)).openPopup())
+                    .catch(err => console.error(err));
+            });
+            
+            // Calcul des itinéraires
+            const router = L.Routing.osrmv1({
+                serviceUrl: 'https://router.project-osrm.org/route/v1',
+                profile: 'cycling',
+                language: 'fr'
+            });
+            
+            const segments = [
+                {
+                    waypoints: [
+                        L.Routing.waypoint(L.latLng(startCoord)),
+                        L.Routing.waypoint(L.latLng(stStart.lat, stStart.lon))
+                    ],
+                    color: 'green'
+                },
+                {
+                    waypoints: [
+                        L.Routing.waypoint(L.latLng(stStart.lat, stStart.lon)),
+                        L.Routing.waypoint(L.latLng(stEnd.lat, stEnd.lon))
+                    ],
+                    color: 'blue'
+                },
+                {
+                    waypoints: [
+                        L.Routing.waypoint(L.latLng(stEnd.lat, stEnd.lon)),
+                        L.Routing.waypoint(L.latLng(endCoord))
+                    ],
+                    color: 'red'
+                }
+            ];
+            
+            segments.forEach(({waypoints, color}) => {
+                router.route(waypoints, (err, routes) => {
+                    if (err || !routes.length) return console.error('Erreur routage', err);
+                    
+                    const line = L.Routing.line(routes[0], {
+                        styles: [{color, weight: 4, opacity: 0.8}]
+                    }).addTo(map);
+                    
+                    window.routeSegments.push(line);
+                });
+            });
+            
+            // Ajuster la vue
+            const bounds = L.latLngBounds([
+                startCoord,
+                [stStart.lat, stStart.lon],
+                [stEnd.lat, stEnd.lon],
+                endCoord
+            ]);
+            map.fitBounds(bounds, {padding: [50, 50]});
+        } catch (error) {
+            alert(error.message || "Erreur lors du calcul de l'itinéraire");
+            console.error("Erreur:", error);
+        }
     }
 
-    // Stocker toutes les stations chargées
-    window.stations = [];
-    // Stocker les promesses d'icônes pour éviter de recréer des icônes identiques
-    const iconCache = new Map();
-
-    // Fonction pour obtenir une icône selon les proportions, avec mise en cache
-    function getProportionalIcon(electricCount, mechanicalCount) {
-        const key = `${electricCount}:${mechanicalCount}`;
-        
-        if (!iconCache.has(key)) {
-            iconCache.set(key, createProportionalIcon(electricCount, mechanicalCount));
+    function clearRoutes() {
+        // Supprimer les tracés existants
+        if (window.routingControl) {
+            map.removeControl(window.routingControl);
+            window.routingControl = null;
         }
         
-        return iconCache.get(key);
+        window.routeSegments.forEach(line => map.removeLayer(line));
+        window.routeSegments.length = 0;
+        
+        // Supprimer les marqueurs d'itinéraire (sauf start/end)
+        map.eachLayer(layer => {
+            if (layer instanceof L.Marker && layer !== startMarker && layer !== endMarker) {
+                if (layer._icon && layer._icon.src && 
+                   (layer._icon.src.includes('red.png') || 
+                    layer._icon.src.includes('green.png') || 
+                    layer._icon.src.includes('blue.png'))) {
+                    map.removeLayer(layer);
+                }
+            }
+        });
     }
 
-
-    function load_data() {
-        // Utiliser la route qui renvoie toutes les données en une seule requête
-        fetch('/stations_full')
-            .then(r => r.json())
-            .then(stationsWithDetails => {
-                window.stationMarkers = [];
-                window.stations = stationsWithDetails; // Stocker les stations globalement
-                
-                // Calculer les maximums pour chaque type de vélos
-                maxBikesCount = 0;
-                maxElectricCount = 0;
-                maxMechanicalCount = 0;
-                maxEmptyCount = 0;
-                
-                stationsWithDetails.forEach(s => {
-                    const totalBikes = (s.bikes || 0);
-                    const electricBikes = (s.electricalBikes || 0);
-                    const mechanicalBikes = (s.mechanicalBikes || 0);
-                    const emptyStands = (s.stands || 0);
-        
-                    if (totalBikes > maxBikesCount) maxBikesCount = totalBikes;
-                    if (electricBikes > maxElectricCount) maxElectricCount = electricBikes;
-                    if (mechanicalBikes > maxMechanicalCount) maxMechanicalCount = mechanicalBikes;
-                    if (emptyStands > maxEmptyCount) maxEmptyCount = emptyStands;
-                });
-
-                console.log("Vélos maximum - Total:", maxBikesCount, "Électriques:", maxElectricCount, "Mécaniques:", maxMechanicalCount, "Vides:", maxEmptyCount);
-
-                // Créer les marqueurs pour chaque station
-                stationsWithDetails.forEach(s => {
-                    const m = L.marker([s.lat, s.lon], {
-                        icon: getMarkerIcon(s, currentDisplayMode)
-                    });
-                    
-                    // Lier l'objet station directement au marker
-                    m.stationData = s;
-                    m.on('click', OnMarkerClick);
-                    window.stationMarkers.push({ marker: m, data: s });
-                });
-                
-                showAll(); // Afficher toutes les stations par défaut
-            })
-            .catch(error => {
-                console.error("Erreur lors du chargement des stations:", error);
+    // Géocodage et recherche de proximité
+    async function reverseGeocode(latlng, inputId) {
+        try {
+            const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latlng.lat}&lon=${latlng.lng}&addressdetails=1&zoom=18`;
+            const response = await fetch(url, {
+                headers: {'Accept-Language': 'fr'}
             });
+            
+            if (!response.ok) throw new Error(`Erreur HTTP: ${response.status}`);
+            
+            const data = await response.json();
+            
+            let address = '';
+            const addr = data.address;
+            
+            if (addr.house_number) address += addr.house_number + ', ';
+            if (addr.road) address += addr.road;
+            if (addr.city || addr.town || addr.village) {
+                address += ' - ' + (addr.city || addr.town || addr.village);
+            }
+            
+            if (!address) address = data.display_name;
+            
+            document.getElementById(inputId).value = address;
+        } catch (error) {
+            console.error('Erreur géocodage inverse:', error);
+        }
+    }    async function geocode(address) {
+        try {
+            // Vérifier si on a des coordonnées exactes pour cette adresse
+            const inputElement = document.querySelector(`input[value="${address}"]`) || 
+                                (document.getElementById('start-address').value === address ? document.getElementById('start-address') : 
+                                 document.getElementById('end-address').value === address ? document.getElementById('end-address') : null);
+            
+            if (inputElement && inputElement.dataset.hasExactCoordinates === "true") {
+                return [parseFloat(inputElement.dataset.exactLat), parseFloat(inputElement.dataset.exactLng)];
+            }
+            
+            if (inputElement && inputElement.dataset.lat && inputElement.dataset.lon) {
+                return [parseFloat(inputElement.dataset.lat), parseFloat(inputElement.dataset.lon)];
+            }
+
+            // Vérifier si l'entrée est des coordonnées GPS (formats acceptés: "45.75, 4.85" ou "45.75 4.85")
+            const gpsRegex = /^(-?\d+(\.\d+)?)\s*[,\s]\s*(-?\d+(\.\d+)?)$/;
+            const gpsMatch = address.match(gpsRegex);
+            
+            if (gpsMatch) {
+                const lat = parseFloat(gpsMatch[1]);
+                const lon = parseFloat(gpsMatch[3]);
+                
+                // Vérifier que les coordonnées sont valides
+                if (lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
+                    console.log(`Coordonnées GPS détectées: ${lat}, ${lon}`);
+                    return [lat, lon];
+                }
+            }
+            
+            // Géocodage via API
+            const url = 'https://nominatim.openstreetmap.org/search'
+                    + '?format=json&limit=1&countrycodes=fr'
+                    + '&viewbox=4.7,45.6,5.0,45.9&bounded=1'
+                    + `&q=${encodeURIComponent(address)}`;
+                    
+            const res = await fetch(url, {
+                headers: {'Accept-Language': 'fr'}
+            });
+            
+            if (!res.ok) throw new Error(`Erreur géocodage: ${res.status}`);
+            
+            const data = await res.json();
+            if (!data.length) throw new Error(`Adresse non trouvée: "${address}"`);
+            
+            return [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+        } catch (error) {
+            throw new Error(`Impossible de localiser: "${address}"`);
+        }
     }
-    
 
-    /**
-     * Vide tous les markers, puis n'affiche que ceux
-     * pour lesquels test(data) renvoie true.
-     */
-    function filterMarkers(test) {
-      // on retire tout d'abord
-      window.stationMarkers.forEach(({ marker }) => {
-        if (map.hasLayer(marker)) map.removeLayer(marker);
-      });
-      // puis on ré-affiche selon le critère
-      window.stationMarkers
-        .filter(({ data }) => test(data))
-        .forEach(({ marker }) => marker.addTo(map));
+    function haversine([lat1, lon1], [lat2, lon2]) {
+        const R = 6371e3; // mètres
+        const phi1 = lat1 * Math.PI/180;
+        const phi2 = lat2 * Math.PI/180;
+        const deltaPhi = (lat2-lat1) * Math.PI/180;
+        const deltaLanda = (lon2-lon1) * Math.PI/180;
+        const a = Math.sin(deltaPhi/2)**2 + Math.cos(phi1)*Math.cos(phi2)*Math.sin(deltaLanda/2)**2;
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    }    function findNearest(coord, isStartStation = false) {
+        if (!stations || stations.length === 0) {
+            return {idstation: "none", nom: "Aucune station disponible", lat: coord[0], lon: coord[1]};
+        }
+        
+        let minDist = Infinity;
+        let nearest = null;
+        
+        // Pour la station de départ, on doit vérifier la disponibilité des vélos
+        const bikeType = document.getElementById('bike-type').value;
+        
+        for (const s of stations) {
+            if (!s.lat || !s.lon) continue;
+            
+            // Si c'est la station de départ, vérifier la disponibilité des vélos selon le type
+            if (isStartStation) {
+                // Station fermée, on passe
+                if (s.status !== 'OPEN') continue;
+                
+                // Vérifier si la station a des vélos du type demandé
+                if (bikeType === 'electric' && (!s.electricalBikes || s.electricalBikes <= 0)) continue;
+                if (bikeType === 'mechanical' && (!s.mechanicalBikes || s.mechanicalBikes <= 0)) continue;
+                if (bikeType === 'any' && (!s.bikes || s.bikes <= 0)) continue;
+            }
+            
+            const d = haversine(coord, [s.lat, s.lon]);
+            if (d < minDist) {
+                minDist = d;
+                nearest = s;
+            }
+        }
+        
+        if (!nearest) {
+            if (isStartStation) {
+                let errorMsg = "Aucune station disponible avec ";
+                if (bikeType === 'electric') errorMsg += "des vélos électriques";
+                else if (bikeType === 'mechanical') errorMsg += "des vélos mécaniques";
+                else errorMsg += "des vélos";
+                errorMsg += " à proximité";
+                
+                return {idstation: "none", nom: errorMsg, lat: coord[0], lon: coord[1]};
+            } else {
+                return {idstation: "none", nom: "Aucune station à proximité", lat: coord[0], lon: coord[1]};
+            }
+        }
+        
+        return nearest;
     }
 
+    // Gestion des marqueurs de stations
+    function getStationIcon(station, mode) {
+        const isClosed = station.status !== 'OPEN';
+        const electricCount = station.electricalBikes || 0;
+        const mechanicalCount = station.mechanicalBikes || 0;
+        const totalBikes = electricCount + mechanicalCount;
+        const isEmpty = totalBikes === 0;
+        
+        // Taille de l'icône basée sur le nombre de vélos
+        const minSize = 30, maxSize = 60;
+        let size = minSize;
+        
+        if (mode === 'all' && !isEmpty && !isClosed) {
+            const ratio = totalBikes / maxBikesCount;
+            size = minSize + (maxSize - minSize) * ratio;
+        } else if (mode === 'electric' && electricCount > 0 && !isClosed) {
+            const ratio = electricCount / maxElectricCount;
+            size = minSize + (maxSize - minSize) * ratio;
+        } else if (mode === 'mechanical' && mechanicalCount > 0 && !isClosed) {
+            const ratio = mechanicalCount / maxMechanicalCount;
+            size = minSize + (maxSize - minSize) * ratio;
+        }
+        
+        let iconUrl;
+        
+        // Choisir l'icône selon le type de station
+        if (isClosed) {
+            iconUrl = 'images/marker-icon_v_closed.png';
+        } else if (isEmpty) {
+            iconUrl = 'images/marker-icon_v_empty.png';
+        } else if (mode === 'electric' && electricCount > 0) {
+            iconUrl = 'images/marker-icon_v_elec.png';
+        } else if (mode === 'mechanical' && mechanicalCount > 0) {
+            iconUrl = 'images/marker-icon_v_meca.png';
+        } else if (electricCount > 0 && mechanicalCount > 0) {
+            // Icône mixte pour stations avec les deux types de vélos
+            return createMixedIcon(station, size, electricCount / totalBikes);
+        } else if (electricCount > 0) {
+            iconUrl = 'images/marker-icon_v_elec.png';
+        } else {
+            iconUrl = 'images/marker-icon_v_meca.png';
+        }
+        
+        return L.icon({
+            iconUrl: iconUrl,
+            iconSize: [size, size],
+            iconAnchor: [size/2, size],
+            popupAnchor: [0, -size]
+        });
+    }
 
+    function createMixedIcon(station, size, electricRatio) {
+        const container = document.createElement('div');
+        container.style.position = 'relative';
+        container.style.width = `${size}px`;
+        container.style.height = `${size}px`;
+        
+        // Élément pour vélos mécaniques (arrière-plan)
+        const mechDiv = document.createElement('div');
+        mechDiv.style.position = 'absolute';
+        mechDiv.style.top = '0';
+        mechDiv.style.left = '0';
+        mechDiv.style.width = `${size}px`;
+        mechDiv.style.height = `${size}px`;
+        mechDiv.style.backgroundImage = 'url(images/marker-icon_v_meca.png)';
+        mechDiv.style.backgroundSize = 'cover';
+        
+        // Élément pour vélos électriques (partie proportionnelle)
+        const elecDiv = document.createElement('div');
+        elecDiv.style.position = 'absolute';
+        elecDiv.style.top = '0';
+        elecDiv.style.left = '0';
+        elecDiv.style.width = Math.round(size * electricRatio) + 'px';
+        elecDiv.style.height = `${size}px`;
+        elecDiv.style.backgroundImage = 'url(images/marker-icon_v_elec.png)';
+        elecDiv.style.backgroundSize = 'cover';
+        elecDiv.style.overflow = 'hidden';
+        
+        container.appendChild(mechDiv);
+        container.appendChild(elecDiv);
+        
+        return L.divIcon({
+            html: container,
+            className: 'custom-div-icon',
+            iconSize: [size, size],
+            iconAnchor: [size/2, size],
+            popupAnchor: [0, -size]
+        });
+    }
 
-    /**
-     * Affiche toutes les stations sur la carte
-     */
-    function showAll() {
-        // Définir le mode courant
-        currentDisplayMode = 'all';
+    function showStations(mode) {
+        currentDisplayMode = mode;
         
         // Supprimer tous les marqueurs existants
         map.eachLayer(function(layer) {
-            if (layer instanceof L.Marker) {
+            if (layer instanceof L.Marker && layer !== startMarker && layer !== endMarker) {
                 map.removeLayer(layer);
             }
         });
         
-        // Ajouter tous les marqueurs avec l'icône appropriée
-        window.stationMarkers.forEach(({marker, data}) => {
-            const newIcon = getMarkerIcon(data, 'all');
-            marker.setIcon(newIcon);
-            marker.addTo(map);
-        });
-    }
-
-    /**
-     * Affiche les stations avec des vélos électriques, vides et fermées
-     */
-    function showElectric() {
-        // Définir le mode courant
-        currentDisplayMode = 'electric';
-        
-        // Supprimer tous les marqueurs existants
-        map.eachLayer(function(layer) {
-            if (layer instanceof L.Marker) {
-                map.removeLayer(layer);
-            }
-        });
-        
-        // Ajouter les marqueurs avec l'icône appropriée
-        window.stationMarkers.forEach(({marker, data}) => {
-            const newIcon = getMarkerIcon(data, 'electric');
-            marker.setIcon(newIcon);
-            marker.addTo(map);
-        });
-    }
-
-    /**
-     * Affiche les stations avec des vélos mécaniques, vides et fermées
-     */
-    function showMechanical() {
-        // Définir le mode courant
-        currentDisplayMode = 'mechanical';
-        
-        // Supprimer tous les marqueurs existants
-        map.eachLayer(function(layer) {
-            if (layer instanceof L.Marker) {
-                map.removeLayer(layer);
-            }
-        });
-        
-        // Ajouter les marqueurs avec l'icône appropriée
-        window.stationMarkers.forEach(({marker, data}) => {
-            const newIcon = getMarkerIcon(data, 'mechanical');
-            marker.setIcon(newIcon);
-            marker.addTo(map);
-        });
-    }
-
-    /**
-     * Affiche uniquement les stations vides
-     */
-    function showEmpty() {
-        // Définir le mode courant
-        currentDisplayMode = 'empty';
-        
-        // Supprimer tous les marqueurs existants
-        map.eachLayer(function(layer) {
-            if (layer instanceof L.Marker) {
-                map.removeLayer(layer);
-            }
-        });
-        
-        // Ajouter uniquement les stations vides
+        // Afficher les marqueurs selon le mode
         window.stationMarkers.forEach(({marker, data}) => {
             const electricCount = data.electricalBikes || 0;
             const mechanicalCount = data.mechanicalBikes || 0;
@@ -798,42 +714,231 @@
             const isEmpty = totalBikes === 0;
             const isClosed = data.status !== 'OPEN';
             
-            if (isEmpty && !isClosed) {
-                marker.setIcon(getMarkerIcon(data, 'empty'));
-                marker.addTo(map);
-            }
-        });
-    }
-
-    /**
-     * Affiche uniquement les stations fermées
-     */
-    function showClosed() {
-        // Définir le mode courant
-        currentDisplayMode = 'closed';
-        
-        // Supprimer tous les marqueurs existants
-        map.eachLayer(function(layer) {
-            if (layer instanceof L.Marker) {
-                map.removeLayer(layer);
-            }
-        });
-        
-        // Ajouter uniquement les stations fermées
-        window.stationMarkers.forEach(({marker, data}) => {
-            const isClosed = data.status !== 'OPEN';
+            let shouldShow = true;
             
-            if (isClosed) {
-                marker.setIcon(getMarkerIcon(data, 'closed'));
+            switch(mode) {
+                case 'empty': shouldShow = isEmpty && !isClosed; break;
+                case 'closed': shouldShow = isClosed; break;
+                case 'electric': shouldShow = electricCount > 0 || isClosed || isEmpty; break;
+                case 'mechanical': shouldShow = mechanicalCount > 0 || isClosed || isEmpty; break;
+            }
+            
+            if (shouldShow) {
+                marker.setIcon(getStationIcon(data, mode));
                 marker.addTo(map);
             }
         });
     }
 
+    // Affichage des popups et graphiques
+    function buildStationPopupContent(station, label = station.nom) {
+        let content = '<div class="station-popup">';
+        
+        content += '<h3>' + label + '</h3>';
+        content += '<div class="address">' + formatAddress(station) + '</div>';
 
-    /**
-     * Sauvegarde les préférences d'affichage des graphiques dans le localStorage
-     */
+        const statusClass = station.status === 'OPEN' ? 'status-open' : 'status-closed';
+        const statusText = station.status === 'OPEN' ? 'Ouverte' : 'Fermée';
+        content += '<div class="info-row"><span class="label">Statut :</span> <span class="value ' + statusClass + '">' + statusText + '</span></div>';
+        content += '<div class="info-row"><span class="label">Capacité :</span> <span class="value">' + station.capacity + ' bornettes</span></div>';
+        content += '<div class="info-row"><span class="label">Places libres :</span> <span class="value">' + station.stands + '</span></div>';
+        content += '<div class="info-row"><span class="label">Vélos disponibles :</span> <span class="value">' + station.bikes + '</span></div>';
+
+        content += '<div class="bikes-available">';
+        content += '<div class="bike-type"><div class="bike-count">' + station.electricalBikes + '</div><div>Électriques</div></div>';
+        content += '<div class="bike-type"><div class="bike-count">' + station.mechanicalBikes + '</div><div>Mécaniques</div></div>';
+        content += '</div>';
+
+        if (station.stationbonus === 'oui') {
+            content += '<div class="info-row"><span class="label">Station bonus</span> <span class="value">✓</span></div>';
+        }
+
+        content += '<div class="last-update">Dernière mise à jour : ' + formatDate(station.horodate) + '</div>';
+
+        content += `
+            <div class="date-selector">
+                <div class="date-group">
+                    <label>Du:</label>
+                    <div class="date-inputs">
+                        <select id="startDay-${station.idstation}" class="date-select"></select>
+                        <select id="startHour-${station.idstation}" class="time-select"></select>
+                    </div>
+                </div>
+                <div class="date-group">
+                    <label>Au:</label>
+                    <div class="date-inputs">
+                        <select id="endDay-${station.idstation}" class="date-select"></select>
+                        <select id="endHour-${station.idstation}" class="time-select"></select>
+                    </div>
+                </div>
+                <button class="graph-button" onclick="loadHistoryImg(${station.idstation})">
+                    Afficher l'historique
+                </button>
+            </div>
+        `;
+
+        content += '</div>';
+        return content;
+    }
+
+    function formatAddress(station) {
+        let address = station.adresse1 || '';
+        if (station.adresse2 && station.adresse2.trim() !== '') {
+            address += ', ' + station.adresse2;
+        }
+        if (station.commune) {
+            address += ' - ' + station.commune;
+        }
+        return address;
+    }
+
+    function formatDate(dateStr) {
+        if (!dateStr) return 'Non disponible';
+        try {
+            const date = new Date(dateStr);
+            return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+        } catch (e) {
+            return dateStr;
+        }
+    }
+
+    function initRanges(id) {
+        const startDaySelect = document.getElementById(`startDay-${id}`);
+        const endDaySelect = document.getElementById(`endDay-${id}`);
+        const startHourSelect = document.getElementById(`startHour-${id}`);
+        const endHourSelect = document.getElementById(`endHour-${id}`);
+        
+        if (!startDaySelect || !endDaySelect || !startHourSelect || !endHourSelect) return;
+        
+        // Vider les sélecteurs existants
+        startDaySelect.innerHTML = '';
+        endDaySelect.innerHTML = '';
+        startHourSelect.innerHTML = '';
+        endHourSelect.innerHTML = '';
+        
+        // Dates pour les données disponibles
+        const minDate = new Date('2024-10-25T00:00:00');
+        const maxDate = new Date('2024-10-29T23:59:59');
+        
+        // Remplir les jours
+        const days = [];
+        const dayLabels = ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
+        const months = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
+        
+        for (let d = new Date(minDate); d <= maxDate; d.setDate(d.getDate() + 1)) {
+            const dateValue = d.toISOString().split('T')[0];
+            const dateLabel = `${dayLabels[d.getDay()]} ${d.getDate()} ${months[d.getMonth()]}`;
+            days.push({ value: dateValue, label: dateLabel });
+        }
+        
+        days.forEach(day => {
+            startDaySelect.add(new Option(day.label, day.value));
+            endDaySelect.add(new Option(day.label, day.value));
+        });
+        
+        // Sélectionner premier et dernier jour
+        startDaySelect.value = days[0].value;
+        endDaySelect.value = days[days.length - 1].value;
+        
+        // Remplir les heures
+        for (let h = 0; h < 24; h++) {
+            const hourStr = h.toString().padStart(2, '0');
+            const hour00 = { value: `${hourStr}:00`, label: `${hourStr}h00` };
+            const hour30 = { value: `${hourStr}:30`, label: `${hourStr}h30` };
+            
+            startHourSelect.add(new Option(hour00.label, hour00.value));
+            startHourSelect.add(new Option(hour30.label, hour30.value));
+            endHourSelect.add(new Option(hour00.label, hour00.value));
+            endHourSelect.add(new Option(hour30.label, hour30.value));
+        }
+        
+        // Valeurs par défaut
+        startHourSelect.value = "00:00";
+        endHourSelect.value = "23:30";
+    }
+
+    function loadHistoryImg(id, isUpdate = false) {
+        const startDay = document.getElementById(`startDay-${id}`).value;
+        const startHour = document.getElementById(`startHour-${id}`).value;
+        const endDay = document.getElementById(`endDay-${id}`).value;
+        const endHour = document.getElementById(`endHour-${id}`).value;
+        
+        const startDate = `${startDay} ${startHour}:00`;
+        const endDate = `${endDay} ${endHour}:00`;
+        
+        const startDateObj = new Date(`${startDay}T${startHour}`);
+        const endDateObj = new Date(`${endDay}T${endHour}`);
+        
+        if (!isUpdate) {
+            // Appliquer les préférences sauvegardées
+            const prefs = loadGraphPreferences();
+            document.getElementById('show-total').checked = prefs.showTotal;
+            document.getElementById('show-stands').checked = prefs.showStands;
+            document.getElementById('show-mechanical').checked = prefs.showMechanical;
+            document.getElementById('show-electric').checked = prefs.showElectric;
+        }
+
+        // Paramètres pour le graphique
+        const params = new URLSearchParams({
+            start: startDate,
+            end: endDate,
+            show_total: document.getElementById('show-total').checked ? '1' : '0',
+            show_stands: document.getElementById('show-stands').checked ? '1' : '0',
+            show_mechanical: document.getElementById('show-mechanical').checked ? '1' : '0',
+            show_electric: document.getElementById('show-electric').checked ? '1' : '0'
+        });
+        
+        const imgUrl = `/history_png/${id}?${params.toString()}`;
+        const station = findStationById(id);
+        if (!station) return;
+
+        // Formater les dates
+        const formatDate = (date) => {
+            const days = ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
+            const months = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
+            return `${days[date.getDay()]} ${date.getDate()} ${months[date.getMonth()]} à ${date.getHours()}h${date.getMinutes().toString().padStart(2, '0')}`;
+        };
+
+        // Mettre à jour le panneau
+        document.getElementById('graph-station-info').textContent = station.nom;
+        document.getElementById('graph-date-info').innerHTML = `
+            <p class="date-range">
+                Du <span class="date-value">${formatDate(startDateObj)}</span><br>
+                au <span class="date-value">${formatDate(endDateObj)}</span>
+            </p>
+        `;
+        
+        document.getElementById('graph-panel').dataset.stationId = id;
+        
+        // Charger l'image
+        const container = document.querySelector('.graph-image-container');
+        container.innerHTML = '<div class="loading">Chargement du graphique...</div>';
+        
+        const img = new Image();
+        img.onload = () => {
+            container.innerHTML = '';
+            container.appendChild(img);
+        };
+        img.onerror = () => {
+            container.innerHTML = '<div class="error">Erreur lors du chargement du graphique</div>';
+        };
+        img.src = imgUrl;
+        img.id = 'graph-image';
+        img.alt = 'Graphique d\'occupation';
+        img.style.width = '100%';
+        
+        if (!isUpdate) {
+            document.getElementById('graph-panel').classList.add('active');
+        }
+    }
+    
+    function findStationById(id) {
+        // Chercher dans les sources de données possibles
+        return window.stations.find(s => s.idstation == id) || 
+               (window.stationMarkers.find(m => m.data.idstation == id) || {}).data || null;
+    }
+
+    // Gestion des préférences
     function saveGraphPreferences() {
         const preferences = {
             showTotal: document.getElementById('show-total').checked,
@@ -845,13 +950,9 @@
         localStorage.setItem('graphPreferences', JSON.stringify(preferences));
     }
 
-    /**
-     * Charge les préférences d'affichage des graphiques depuis le localStorage
-     */
     function loadGraphPreferences() {
         const savedPrefs = localStorage.getItem('graphPreferences');
         
-        // Si aucune préférence n'est sauvegardée, on utilise les valeurs par défaut
         if (!savedPrefs) {
             return {
                 showTotal: true,
@@ -864,391 +965,159 @@
         return JSON.parse(savedPrefs);
     }
 
-    /**
-     * Applique les préférences sauvegardées aux cases à cocher
-     */
-    function applyGraphPreferences() {
-        const prefs = loadGraphPreferences();
-        
-        document.getElementById('show-total').checked = prefs.showTotal;
-        document.getElementById('show-stands').checked = prefs.showStands;
-        document.getElementById('show-mechanical').checked = prefs.showMechanical;
-        document.getElementById('show-electric').checked = prefs.showElectric;
-    }
-
-    // Construit le HTML complet d’une popup de station.
-    // @param {Object} station  Objet tel que renvoyé par /station/{id}
-    // @param {string} [label]  Texte à préfixer au nom (ex. « Station de départ »)
-    // @returns {string} HTML
-    function buildStationPopupContent(station, label = station.nom) {
-        // Construction du HTML pour la popup
-        var content = '<div class="station-popup">';
-        
-        // En-tête avec nom et statut
-        content += '<h3>' + station.nom + '</h3>';
-        content += '<div class="address">' + formatAddress(station) + '</div>';
-
-        // Statut de la station (ouverte/fermée)
-        var statusClass = station.status === 'OPEN' ? 'status-open' : 'status-closed';
-        var statusText = station.status === 'OPEN' ? 'Ouverte' : 'Fermée';
-        content += '<div class="info-row"><span class="label">Statut :</span> <span class="value ' + statusClass + '">' + statusText + '</span></div>';
-
-        // Capacité totale
-        content += '<div class="info-row"><span class="label">Capacité :</span> <span class="value">' + station.capacity + ' bornettes</span></div>';
-
-        // Places disponibles et vélos disponibles
-        content += '<div class="info-row"><span class="label">Places libres :</span> <span class="value">' + station.stands + '</span></div>';
-        content += '<div class="info-row"><span class="label">Vélos disponibles :</span> <span class="value">' + station.bikes + '</span></div>';
-
-        // Types de vélos disponibles
-        content += '<div class="bikes-available">';
-        content += '<div class="bike-type"><div class="bike-count">' + station.electricalBikes + '</div><div>Électriques</div></div>';
-        content += '<div class="bike-type"><div class="bike-count">' + station.mechanicalBikes + '</div><div>Mécaniques</div></div>';
-        content += '</div>';
-
-        // Information bonus
-        if (station.stationbonus === 'oui') {
-        content += '<div class="info-row"><span class="label">Station bonus</span> <span class="value">✓</span></div>';
-        }
-
-        // Dernière mise à jour
-        content += '<div class="last-update">Dernière mise à jour : ' + formatDate(station.horodate) + '</div>';
-
-        // Ajout des contrôles pour le graphique mais sans afficher l'image directement
-        content += `
-            <div style="margin-top: 0.5em;">
-            <div>
-                Début : 
-                <input type="range" id="startRange-${station.idstation}" style="width:45%;">
-                <span id="startLabel-${station.idstation}"></span>
-            </div>
-            <div style="margin-top:0.3em;">
-                Fin :   
-                <input type="range" id="endRange-${station.idstation}"   style="width:45%;">
-                <span id="endLabel-${station.idstation}"></span>
-            </div>
-            <div style="margin-top:0.5em;">
-                <button onclick="loadHistoryImg(${station.idstation})">
-                Afficher l'historique'
-                </button>
-            </div>
-            </div>
-        `;
-
-        content += '</div>';
-        return content;
-    }
-
-    // Modification de la fonction OnMarkerClick pour utiliser directement les données du marqueur
-    function OnMarkerClick(e) {
-        // Les données de la station sont déjà attachées au marqueur
-        const station = e.target.stationData;
-        
-        // Construire le contenu de la popup
-        const content = buildStationPopupContent(station);
-        
-        // Unbind any existing popup and bind a new one
-        e.target.unbindPopup().bindPopup(content).openPopup();
-        
-        // Initialiser les sliders pour cette station
-        initRanges(station.idstation);
-    }
-    // Fonction pour formater l'adresse
-    function formatAddress(station) {
-        let address = station.adresse1 || '';
-        if (station.adresse2 && station.adresse2.trim() !== '') {
-            address += ', ' + station.adresse2;
-        }
-        if (station.commune) {
-            address += ' - ' + station.commune;
-        }
-        return address;
-    }
-
-    // Fonction pour formater la date
-    function formatDate(dateStr) {
-        if (!dateStr) return 'Non disponible';
-        try {
-            const date = new Date(dateStr);
-            return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
-        } catch (e) {
-            return dateStr;
-        }
-    }
-
-
-    /**
-     * Initialise les sélecteurs de date/heure pour la visualisation de l'historique
-     */
-    function initRanges(id) {
-        // Dates limites pour les données disponibles
-        const minDate = new Date('2024-10-25T00:00:00');
-        const maxDate = new Date('2024-10-29T23:59:59');
-        
-        // Récupérer les conteneurs existants
-        const container = document.querySelector(`.station-popup button[onclick="loadHistoryImg(${id})"]`).parentNode.parentNode;
-        
-        // Vider le conteneur des anciens éléments
-        container.innerHTML = '';
-        
-        // Créer une interface plus ergonomique
-        container.innerHTML = `
-            <div class="date-selector">
-                <div class="date-group">
-                    <label>Du:</label>
-                    <div class="date-inputs">
-                        <select id="startDay-${id}" class="date-select"></select>
-                        <select id="startHour-${id}" class="time-select"></select>
-                    </div>
-                </div>
-                <div class="date-group">
-                    <label>Au:</label>
-                    <div class="date-inputs">
-                        <select id="endDay-${id}" class="date-select"></select>
-                        <select id="endHour-${id}" class="time-select"></select>
-                    </div>
-                </div>
-                <button class="graph-button" onclick="loadHistoryImg(${id})">
-                    Afficher l'historique
-                </button>
-            </div>
-        `;
-        
-        // Remplir les sélecteurs de jours
-        const startDaySelect = document.getElementById(`startDay-${id}`);
-        const endDaySelect = document.getElementById(`endDay-${id}`);
-        
-        // Générer les options pour les jours
-        const days = [];
-        const dayLabels = ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
-        const months = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
-        
-        for (let d = new Date(minDate); d <= maxDate; d.setDate(d.getDate() + 1)) {
-            const dateValue = d.toISOString().split('T')[0];
-            const dateLabel = `${dayLabels[d.getDay()]} ${d.getDate()} ${months[d.getMonth()]}`;
-            days.push({ value: dateValue, label: dateLabel });
+    // Fonction pour réinitialiser complètement l'itinéraire
+    function resetRoute() {
+        // Supprimer les marqueurs de départ et d'arrivée
+        if (startMarker) {
+            map.removeLayer(startMarker);
+            startMarker = null;
         }
         
-        // Ajouter les options aux sélecteurs
-        days.forEach(day => {
-            startDaySelect.add(new Option(day.label, day.value));
-            endDaySelect.add(new Option(day.label, day.value));
+        if (endMarker) {
+            map.removeLayer(endMarker);
+            endMarker = null;
+        }
+        
+        // Vider les champs d'adresse
+        document.getElementById('start-address').value = '';
+        document.getElementById('end-address').value = '';
+        
+        // Supprimer les attributs de coordonnées
+        const startInput = document.getElementById('start-address');
+        const endInput = document.getElementById('end-address');
+        
+        startInput.removeAttribute('data-has-exact-coordinates');
+        startInput.removeAttribute('data-exact-lat');
+        startInput.removeAttribute('data-exact-lng');
+        
+        endInput.removeAttribute('data-has-exact-coordinates');
+        endInput.removeAttribute('data-exact-lat');
+        endInput.removeAttribute('data-exact-lng');
+        
+        // Nettoyer les routes
+        clearRoutes();
+        
+        // Réafficher toutes les stations selon le mode actuel
+        showStations(currentDisplayMode);
+    }    // Gestionnaires d'événements    
+    function setupEventListeners() {
+        // Formulaire d'itinéraire
+        document.getElementById('calculate-route-button').addEventListener('click', calculateItinerary);
+        document.getElementById('reset-route-button').addEventListener('click', e => {
+            e.preventDefault();
+            resetRoute();
+        });
+        document.getElementById('route-form').addEventListener('submit', e => e.preventDefault());
+        
+        // Sélection sur la carte
+        document.getElementById('select-start-button').addEventListener('click', e => {
+            e.preventDefault();
+            activateSelectionMode('start');
         });
         
-        // Sélectionner le premier et dernier jour par défaut
-        startDaySelect.value = days[0].value;
-        endDaySelect.value = days[days.length - 1].value;
-        
-        // Remplir les sélecteurs d'heures
-        const startHourSelect = document.getElementById(`startHour-${id}`);
-        const endHourSelect = document.getElementById(`endHour-${id}`);
-        
-        // Générer les options pour les heures
-        const hours = [];
-        for (let h = 0; h < 24; h++) {
-            const hourStr = h.toString().padStart(2, '0');
-            hours.push({ value: `${hourStr}:00`, label: `${hourStr}h00` });
-            hours.push({ value: `${hourStr}:30`, label: `${hourStr}h30` });
-        }
-        
-        // Ajouter les options aux sélecteurs
-        hours.forEach(hour => {
-            startHourSelect.add(new Option(hour.label, hour.value));
-            endHourSelect.add(new Option(hour.label, hour.value));
+        document.getElementById('select-end-button').addEventListener('click', e => {
+            e.preventDefault();
+            activateSelectionMode('end');
         });
         
-        // Sélectionner la première et dernière heure par défaut
-        startHourSelect.value = "00:00";
-        endHourSelect.value = "23:30";
-    }
-
-    /**
-     * Affiche un graphique dans le panneau glissant depuis le bas
-     */
-    function loadHistoryImg(id, isUpdate = false) {
-        // Récupérer les valeurs des sélecteurs de date et heure
-        const startDay = document.getElementById(`startDay-${id}`).value;
-        const startHour = document.getElementById(`startHour-${id}`).value;
-        const endDay = document.getElementById(`endDay-${id}`).value;
-        const endHour = document.getElementById(`endHour-${id}`).value;
-        
-        // Construire les dates complètes
-        const startDate = `${startDay} ${startHour}:00`;
-        const endDate = `${endDay} ${endHour}:00`;
-        
-        // Créer des objets Date pour l'affichage
-        const startDateObj = new Date(`${startDay}T${startHour}`);
-        const endDateObj = new Date(`${endDay}T${endHour}`);
-        
-        // Si premier chargement du panneau, appliquer les préférences sauvegardées
-        if (!isUpdate) {
-            applyGraphPreferences();
-        }
-
-        // Récupérer les sélections de séries à afficher
-        const prefs = loadGraphPreferences();
-        
-        const params = new URLSearchParams({
-            start: startDate,
-            end: endDate,
-            show_total: prefs.showTotal ? '1' : '0',
-            show_stands: prefs.showStands ? '1' : '0',
-            show_mechanical: prefs.showMechanical ? '1' : '0',
-            show_electric: prefs.showElectric ? '1' : '0'
+        // Panneaux
+        document.getElementById('toggle-route-form').addEventListener('click', () => {
+            document.getElementById('route-panel').classList.add('active');
         });
         
-        const imgUrl = `/history_png/${id}?${params.toString()}`;
-
-        // Récupérer la station
-        const station = findStationById(id);
-        if (!station) return;
-
-        // Récupérer le nom de la station
-        const stationName = station.nom;
-
-        // Formater l'affichage des dates
-        const formatDate = (date) => {
-            const days = ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
-            const months = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
-            
-            return `${days[date.getDay()]} ${date.getDate()} ${months[date.getMonth()]} à ${date.getHours()}h${date.getMinutes().toString().padStart(2, '0')}`;
-        };
-
-        // Mettre à jour le contenu du panneau
-        document.getElementById('graph-station-info').textContent = stationName;
-        document.getElementById('graph-date-info').innerHTML = `
-            <p class="date-range">
-                Du <span class="date-value">${formatDate(startDateObj)}</span><br>
-                au <span class="date-value">${formatDate(endDateObj)}</span>
-            </p>
-        `;
-        
-        // Stocker l'ID de la station pour les mises à jour ultérieures
-        document.getElementById('graph-panel').dataset.stationId = id;
-        
-        // Charger l'image avec indicateur de chargement
-        const container = document.querySelector('.graph-image-container');
-        container.innerHTML = '<div class="loading">Chargement du graphique...</div>';
-        
-        const img = new Image();
-        img.onload = function() {
-            container.innerHTML = '';
-            container.appendChild(img);
-        };
-        img.onerror = function() {
-            container.innerHTML = '<div class="error">Erreur lors du chargement du graphique</div>';
-        };
-        img.src = imgUrl;
-        img.id = 'graph-image';
-        img.alt = 'Graphique d\'occupation';
-        img.style.width = '100%';
-        
-        // Afficher le panneau latéral s'il ne l'est pas déjà
-        if (!isUpdate) {
-            document.getElementById('graph-panel').classList.add('active');
-        }
-    }
-    
-    // Fonction pour trouver une station par son ID
-    function findStationById(id) {
-        // Chercher d'abord dans le tableau global window.stations
-        if (window.stations && window.stations.length > 0) {
-            const found = window.stations.find(s => s.idstation == id);
-            if (found) return found;
-        }
-        
-        // Sinon chercher dans les marqueurs
-        for (let markerObj of window.stationMarkers) {
-            if (markerObj.data.idstation == id) {
-                return markerObj.data;
-            }
-        }
-        
-        // Ensuite chercher dans le tableau stations local
-        if (stations && stations.length > 0) {
-            const found = stations.find(s => s.idstation == id);
-            if (found) return found;
-        }
-        
-        console.error(`Station ID ${id} not found`);
-        return null;
-    }
-    // Gestion de l'affichage du panneau d'itinéraire
-    document.addEventListener('DOMContentLoaded', function() {
-        const toggleButton = document.getElementById('toggle-route-form');
-        const closeButton = document.getElementById('close-panel');
-        const routePanel = document.getElementById('route-panel');
-        
-        // Afficher le panneau quand on clique sur le bouton
-        toggleButton.addEventListener('click', function() {
-            routePanel.classList.add('active');
+        document.getElementById('close-panel').addEventListener('click', () => {
+            document.getElementById('route-panel').classList.remove('active');
+            deactivateSelectionMode();
         });
         
-        // Fermer le panneau quand on clique sur le bouton de fermeture
-        closeButton.addEventListener('click', function() {
-            routePanel.classList.remove('active');
-        });
-        
-        // // Fermer le panneau quand on clique en dehors
-        // document.addEventListener('click', function(event) {
-        //     if (!routePanel.contains(event.target) && 
-        //         !toggleButton.contains(event.target) && 
-        //         routePanel.classList.contains('active')) {
-        //         routePanel.classList.remove('active');
-        //     }
-        // });
-    });
-
-    // Initialiser les gestionnaires d'événements pour le panneau de graphique
-    document.addEventListener('DOMContentLoaded', function() {
-        // Gestionnaire pour le bouton de fermeture du panneau
-        document.getElementById('close-graph-panel').addEventListener('click', function() {
+        document.getElementById('close-graph-panel').addEventListener('click', () => {
             document.getElementById('graph-panel').classList.remove('active');
         });
         
-        // Écouter les changements sur les cases à cocher pour sauvegarder les préférences
+        // Préférences graphiques
         document.getElementById('show-total').addEventListener('change', saveGraphPreferences);
         document.getElementById('show-stands').addEventListener('change', saveGraphPreferences);
         document.getElementById('show-mechanical').addEventListener('change', saveGraphPreferences);
         document.getElementById('show-electric').addEventListener('change', saveGraphPreferences);
         
-        // Modifier le gestionnaire du bouton de mise à jour pour utiliser les préférences
-        document.getElementById('update-graph').addEventListener('click', function() {
-            const graphPanel = document.getElementById('graph-panel');
-            const stationId = graphPanel.dataset.stationId;
-            
-            // Sauvegarder les préférences avant de mettre à jour
+        document.getElementById('update-graph').addEventListener('click', () => {
+            const stationId = document.getElementById('graph-panel').dataset.stationId;
             saveGraphPreferences();
-            
-            if (stationId) {
-                loadHistoryImg(stationId, true);
-            }
+            if (stationId) loadHistoryImg(stationId, true);
         });
+    }
+
+    function resetMarker(type) {
+        const isStart = type === 'start';
+        const marker = isStart ? startMarker : endMarker;
+        const inputId = isStart ? 'start-address' : 'end-address';
+        const resetButtonId = isStart ? 'reset-start-button' : 'reset-end-button';
         
-        // Ajouter du style pour le chargement
-        const style = document.createElement('style');
-        style.textContent = `
-            .loading {
-                text-align: center;
-                padding: 20px;
-                color: #666;
-            }
-            .error {
-                text-align: center;
-                padding: 20px;
-                color: #d9534f;
-            }
-        `;
-        document.head.appendChild(style);
+        if (marker) {
+            map.removeLayer(marker);
+            if (isStart) startMarker = null;
+            else endMarker = null;
+        }
+        
+        const input = document.getElementById(inputId);
+        input.value = '';
+        input.removeAttribute('data-has-exact-coordinates');
+        input.removeAttribute('data-exact-lat');
+        input.removeAttribute('data-exact-lng');
+        
+        document.getElementById(resetButtonId).style.display = 'none';
+    }
 
-        document.getElementById('update-graph').addEventListener('click', function() {
-            const graphPanel = document.getElementById('graph-panel');
-            const stationId = graphPanel.dataset.stationId;
-
-            if (stationId) {
-                loadHistoryImg(stationId, true);
-            }
+    function calculateRoute() {
+        // Récupérer les adresses
+        const startAddress = document.getElementById('startAddress').value;
+        const endAddress = document.getElementById('endAddress').value;
+        
+        if (!startAddress || !endAddress) {
+            alert('Veuillez entrer les adresses de départ et d\'arrivée');
+            return;
+        }
+        
+        // Géocodage
+        Promise.all([
+            geocodeAddress(startAddress),
+            geocodeAddress(endAddress)
+        ])
+        .then(([startCoord, endCoord]) => {
+            // Nettoyer les points existants
+            if (startMarker) map.removeLayer(startMarker);
+            if (endMarker) map.removeLayer(endMarker);
+            
+            // Créer les nouveaux marqueurs
+            startMarker = L.marker(startCoord, {
+                draggable: true,
+                icon: L.icon({
+                    iconUrl: 'images/jambe.png',
+                    iconSize: [25, 41],
+                    iconAnchor: [12, 41],
+                    popupAnchor: [1, -34]
+                })
+            }).addTo(map)
+              .on('dragend', calculateRouteFromMarkers);
+              
+            endMarker = L.marker(endCoord, {
+                draggable: true,
+                icon: L.icon({
+                    iconUrl: 'images/jambe2.png',
+                    iconSize: [25, 41],
+                    iconAnchor: [12, 41],
+                    popupAnchor: [1, -34]
+                })
+            }).addTo(map)
+              .on('dragend', calculateRouteFromMarkers);
+            
+            // Calculer l'itinéraire
+            calculateRouteFromMarkers();
+        })
+        .catch(error => {
+            console.error('Erreur de géocodage:', error);
+            alert('Erreur lors du géocodage des adresses. Vérifiez la connexion et les adresses saisies.');
         });
-    });
-
+    }
 </script>
+</html>
