@@ -152,7 +152,7 @@ a.delete:hover {
     justify-content: space-between;
     align-items: center;
     padding: 15px;
-    background-color: rgba(102, 255, 153, 0.8);
+    background-color:rgba(102, 255, 153);
     color: white;
 }
 
