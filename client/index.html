@@ -808,66 +808,81 @@
         const startHourSelect = document.getElementById(`startHour-${id}`);
         const endHourSelect = document.getElementById(`endHour-${id}`);
         
-        if (!startDaySelect || !endDaySelect || !startHourSelect || !endHourSelect) return;
-        
         // Vider les sélecteurs existants
-        startDaySelect.innerHTML = '';
-        endDaySelect.innerHTML = '';
-        startHourSelect.innerHTML = '';
-        endHourSelect.innerHTML = '';
+        while (startDaySelect.firstChild) startDaySelect.removeChild(startDaySelect.firstChild);
+        while (endDaySelect.firstChild) endDaySelect.removeChild(endDaySelect.firstChild);
+        while (startHourSelect.firstChild) startHourSelect.removeChild(startHourSelect.firstChild);
+        while (endHourSelect.firstChild) endHourSelect.removeChild(endHourSelect.firstChild);
         
-        // Dates pour les données disponibles
-        const minDate = new Date('2024-10-25T00:00:00');
-        const maxDate = new Date('2024-10-29T23:59:59');
+        // Ajouter les dates disponibles (25-29 octobre au lieu de 24-28)
+        const dates = ['2024-10-25', '2024-10-26', '2024-10-27', '2024-10-28', '2024-10-29'];
+        const dayNames = ['Vendredi 25 octobre', 'Samedi 26 octobre', 'Dimanche 27 octobre', 'Lundi 28 octobre', 'Mardi 29 octobre'];
         
-        // Remplir les jours
-        const days = [];
-        const dayLabels = ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
-        const months = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
+        // Ajouter les heures disponibles
+        const hours = ['00:00', '00:30', '01:00', '01:30', '02:00', '02:30', '03:00', '03:30', 
+                    '04:00', '04:30', '05:00', '05:30', '06:00', '06:30', '07:00', '07:30',
+                    '08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
+                    '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30',
+                    '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30',
+                    '20:00', '20:30', '21:00', '21:30', '22:00', '22:30', '23:00', '23:30'];
         
-        for (let d = new Date(minDate); d <= maxDate; d.setDate(d.getDate() + 1)) {
-            const dateValue = d.toISOString().split('T')[0];
-            const dateLabel = `${dayLabels[d.getDay()]} ${d.getDate()} ${months[d.getMonth()]}`;
-            days.push({ value: dateValue, label: dateLabel });
+        // Ajouter les options de jour
+        for (let i = 0; i < dates.length; i++) {
+            const startOption = document.createElement('option');
+            startOption.value = dates[i];
+            startOption.text = dayNames[i];
+            startDaySelect.appendChild(startOption);
+            
+            const endOption = document.createElement('option');
+            endOption.value = dates[i];
+            endOption.text = dayNames[i];
+            endDaySelect.appendChild(endOption);
         }
         
-        days.forEach(day => {
-            startDaySelect.add(new Option(day.label, day.value));
-            endDaySelect.add(new Option(day.label, day.value));
+        // Ajouter les options d'heure
+        hours.forEach(hour => {
+            const startHourOption = document.createElement('option');
+            startHourOption.value = hour;
+            startHourOption.text = hour.replace(':', 'h');
+            startHourSelect.appendChild(startHourOption);
+            
+            const endHourOption = document.createElement('option');
+            endHourOption.value = hour;
+            endHourOption.text = hour.replace(':', 'h');
+            endHourSelect.appendChild(endHourOption);
         });
         
-        // Sélectionner premier et dernier jour
-        startDaySelect.value = days[0].value;
-        endDaySelect.value = days[days.length - 1].value;
-        
-        // Remplir les heures
-        for (let h = 0; h < 24; h++) {
-            const hourStr = h.toString().padStart(2, '0');
-            const hour00 = { value: `${hourStr}:00`, label: `${hourStr}h00` };
-            const hour30 = { value: `${hourStr}:30`, label: `${hourStr}h30` };
-            
-            startHourSelect.add(new Option(hour00.label, hour00.value));
-            startHourSelect.add(new Option(hour30.label, hour30.value));
-            endHourSelect.add(new Option(hour00.label, hour00.value));
-            endHourSelect.add(new Option(hour30.label, hour30.value));
-        }
-        
         // Valeurs par défaut
-        startHourSelect.value = "00:00";
-        endHourSelect.value = "23:30";
+        startDaySelect.value = dates[0];  // Premier jour (25 octobre)
+        endDaySelect.value = dates[dates.length-1];  // Dernier jour (29 octobre)
+        startHourSelect.value = '00:00';
+        endHourSelect.value = '23:30';
     }
 
+
     function loadHistoryImg(id, isUpdate = false) {
+        // Récupérer les valeurs sélectionnées
         const startDay = document.getElementById(`startDay-${id}`).value;
         const startHour = document.getElementById(`startHour-${id}`).value;
         const endDay = document.getElementById(`endDay-${id}`).value;
         const endHour = document.getElementById(`endHour-${id}`).value;
         
+        // Format exact attendu par le serveur: "YYYY-MM-DD HH:MM:SS"
         const startDate = `${startDay} ${startHour}:00`;
         const endDate = `${endDay} ${endHour}:00`;
         
-        const startDateObj = new Date(`${startDay}T${startHour}`);
-        const endDateObj = new Date(`${endDay}T${endHour}`);
+        console.log(`Envoi dates au serveur: ${startDate} au ${endDate}`);
+        
+        // Récupérer les textes affichés pour l'utilisateur
+        const startDaySelect = document.getElementById(`startDay-${id}`);
+        const endDaySelect = document.getElementById(`endDay-${id}`);
+        const startHourSelect = document.getElementById(`startHour-${id}`);
+        const endHourSelect = document.getElementById(`endHour-${id}`);
+        
+        const startDayText = startDaySelect.options[startDaySelect.selectedIndex].text;
+        const endDayText = endDaySelect.options[endDaySelect.selectedIndex].text;
+        const startHourText = startHourSelect.options[startHourSelect.selectedIndex].text;
+        const endHourText = endHourSelect.options[endHourSelect.selectedIndex].text;
         
         if (!isUpdate) {
             // Appliquer les préférences sauvegardées
@@ -892,19 +907,12 @@
         const station = findStationById(id);
         if (!station) return;
 
-        // Formater les dates
-        const formatDate = (date) => {
-            const days = ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
-            const months = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
-            return `${days[date.getDay()]} ${date.getDate()} ${months[date.getMonth()]} à ${date.getHours()}h${date.getMinutes().toString().padStart(2, '0')}`;
-        };
-
-        // Mettre à jour le panneau
+        // Mettre à jour le panneau avec les textes exacts des options sélectionnées
         document.getElementById('graph-station-info').textContent = station.nom;
         document.getElementById('graph-date-info').innerHTML = `
             <p class="date-range">
-                Du <span class="date-value">${formatDate(startDateObj)}</span><br>
-                au <span class="date-value">${formatDate(endDateObj)}</span>
+                Du <span class="date-value">${startDayText} à ${startHourText}</span><br>
+                au <span class="date-value">${endDayText} à ${endHourText}</span>
             </p>
         `;
         
@@ -931,7 +939,9 @@
             document.getElementById('graph-panel').classList.add('active');
         }
     }
-    
+
+
+
     function findStationById(id) {
         // Chercher dans les sources de données possibles
         return window.stations.find(s => s.idstation == id) || 

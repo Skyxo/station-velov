@@ -238,6 +238,7 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
             self.send_error(500, f"Erreur SQLite : {e}")
             print(f"Erreur SQLite : {e}")
             
+
     def send_station_history_png(self, station_id):
         """Génère un graphique PNG pour une station"""
         print(f"Graphique demandé pour station {station_id}")
@@ -248,68 +249,71 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
         end = self.params.get('end', [None])[0]
         print(f"Période: {start} au {end}")
         
+        # Correction du format de date si nécessaire
+        if start and not start.endswith(':00'):
+            start = f"{start}:00"
+        if end and not end.endswith(':00'):
+            end = f"{end}:00"
+        
         # Options d'affichage
         show_total = self.params.get('show_total', ['1'])[0] == '1'
         show_stands = self.params.get('show_stands', ['1'])[0] == '1'
         show_mechanical = self.params.get('show_mechanical', ['1'])[0] == '1'
         show_electric = self.params.get('show_electric', ['1'])[0] == '1'
         
-        # Clé de cache
-        cache_key = f"station_{station_id}"
-        if start:
-            safe_start = start.replace(':', '-').replace(' ', '_')
-            cache_key += f"_start_{safe_start}"
-        if end:
-            safe_end = end.replace(':', '-').replace(' ', '_')
-            cache_key += f"_end_{safe_end}"
-        
-        cache_key += f"_t{int(show_total)}s{int(show_stands)}m{int(show_mechanical)}e{int(show_electric)}"
-        
-        filename = cache_key + ".png"
+        # Vérifier si le graphique est déjà en cache
+        # On crée ici un nom de fichier unique basé sur les paramètres
+        start_str = start.replace(' ', '_').replace(':', '-') if start else 'all'
+        end_str = end.replace(' ', '_').replace(':', '-') if end else 'all'
+        opt_str = f"t{int(show_total)}s{int(show_stands)}m{int(show_mechanical)}e{int(show_electric)}"
+        filename = f"station_{station_id}_start_{start_str}_end_{end_str}_{opt_str}.png"
         filepath = os.path.join(COURBES_DIR, filename)
         
-        # Vérification cache
-        c.execute('''
-            SELECT filename FROM "cache_graphiques" 
-            WHERE station_id = ? AND 
-                  (start_date IS NULL OR start_date = ?) AND 
-                  (end_date IS NULL OR end_date = ?) AND
-                  filename = ?
-        ''', (station_id, start, end, filename))
-        
-        cached = c.fetchone()
-        
-        # Utiliser cache si disponible
-        if cached and os.path.exists(os.path.join(COURBES_DIR, cached[0])):
-            print(f"Utilisation du cache: {cached[0]}")
-            with open(os.path.join(COURBES_DIR, cached[0]), 'rb') as f:
-                self.send(f.read(), [('Content-Type', 'image/png')])
+        # Vérifier si le fichier existe déjà en cache
+        if os.path.exists(filepath):
+            print(f"Utilisation du graphique en cache: {filename}")
+            with open(filepath, 'rb') as f:
+                png = f.read()
+            self.send(png, [('Content-Type','image/png')])
             return
         
-        # Sinon, générer graphique
-        where = ['number = ?']
+        # Construire requête
         args = [station_id]
-        fmt = "datetime(substr(horodate,1,19))"
+        where = ["number = ?"]
+        
+        # Important: utiliser substr pour extraire la partie date sans le fuseau horaire
+        fmt = "substr(horodate, 1, 19)"
+        
         if start:
-            where.append(f"{fmt} >= ?"); args.append(start)
+            where.append(f"{fmt} >= ?")
+            args.append(start)
         if end:
-            where.append(f"{fmt} <= ?"); args.append(end)
+            where.append(f"{fmt} <= ?")
+            args.append(end)
 
         sql = f"""
-          SELECT horodate, bikes, stands, mechanicalBikes, electricalBikes
-          FROM "velov-histo"
-          WHERE {" AND ".join(where)}
-          ORDER BY {fmt} ASC
+        SELECT horodate, bikes, stands, mechanicalBikes, electricalBikes
+        FROM "velov-histo"
+        WHERE {" AND ".join(where)}
+        ORDER BY {fmt} ASC
         """
+        
+        # Afficher la requête pour débogage
+        print(f"SQL Query: {sql}")
+        print(f"Args: {args}")
+        
         c.execute(sql, args)
         rows = c.fetchall()
+        
+        # Afficher le nombre de résultats
+        print(f"Nombre de résultats: {len(rows)}")
 
         # Si pas de données
         if not rows:
             self.send(b'', [('Content-Type','image/png')])
             return
 
-        # Préparation données
+        # Préparation données - important: tronquer à 19 caractères pour ignorer le fuseau
         dates = [datetime.strptime(r[0][:19], '%Y-%m-%d %H:%M:%S') for r in rows]
         bikes = [r[1] for r in rows]
         stands = [r[2] for r in rows]
@@ -356,6 +360,7 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
         png = buf.read()
 
         self.send(png, [('Content-Type','image/png')])
+
 
     def send_regions(self):
         """Envoie la liste des stations"""
