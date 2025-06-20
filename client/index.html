@@ -139,40 +139,63 @@
         setupEventListeners();
     }
 
-    // Chargement des stations
-    function loadStations() {
-        fetch('/stations_full')
-            .then(response => response.json())
-            .then(data => {
-                stations = data;
-                window.stations = data;
-                
-                // Calculer les maximums
-                maxBikesCount = Math.max(...data.map(s => s.bikes || 0));
-                maxElectricCount = Math.max(...data.map(s => s.electricalBikes || 0));
-                maxMechanicalCount = Math.max(...data.map(s => s.mechanicalBikes || 0));
-                
-                // Créer les marqueurs
-                data.forEach(station => {
-                    const marker = L.marker([station.lat, station.lon], {
-                        icon: getStationIcon(station, 'all')
-                    });
-                    
-                    marker.stationData = station;
-                    marker.stationId = station.idstation;
-                    marker.on('click', function(e) {
-                        const popup = buildStationPopupContent(e.target.stationData);
-                        e.target.unbindPopup().bindPopup(popup).openPopup();
-                        initRanges(e.target.stationData.idstation);
-                    });
-                    
-                    window.stationMarkers.push({marker, data: station});
+ 
+// Modifier la fonction loadStations pour ajouter l'animation d'apparition des marqueurs
+
+function loadStations() {
+    fetch('/stations_full')
+        .then(response => response.json())
+        .then(data => {
+            stations = data;
+            window.stations = data;
+            
+            // Calculer les maximums
+            maxBikesCount = Math.max(...data.map(s => s.bikes || 0));
+            maxElectricCount = Math.max(...data.map(s => s.electricalBikes || 0));
+            maxMechanicalCount = Math.max(...data.map(s => s.mechanicalBikes || 0));
+            
+            // Créer les marqueurs avec animation séquentielle
+            data.forEach((station, index) => {
+                const marker = L.marker([station.lat, station.lon], {
+                    icon: getStationIcon(station, 'all')
                 });
                 
-                showStations('all');
-            })
-            .catch(err => console.error("Erreur chargement des stations:", err));
-    }
+                marker.stationData = station;
+                marker.stationId = station.idstation;
+                
+                // Ajout des écouteurs pour la barre de capacité
+                marker.on('mouseover', createCapacityBar);
+                marker.on('mouseout', removeCapacityBar);
+                
+                marker.on('click', function(e) {
+                    // Ajouter une classe pour le style de popup ouvert
+                    const icons = document.querySelectorAll('.leaflet-marker-icon');
+                    icons.forEach(icon => icon.classList.remove('active-popup'));
+                    e.target._icon?.classList.add('active-popup');
+                    
+                    const popup = buildStationPopupContent(e.target.stationData);
+                    e.target.unbindPopup().bindPopup(popup).openPopup();
+                    initRanges(e.target.stationData.idstation);
+                    removeCapacityBar(); // Enlever la barre quand le popup s'ouvre
+                });
+                
+                window.stationMarkers.push({marker, data: station});
+                
+                // Animation d'apparition avec délai progressif pour un effet d'écoulement
+                setTimeout(() => {
+                    if (marker._icon) {
+                        marker._icon.classList.add('new-marker');
+                        // Retirer la classe après l'animation pour éviter les conflits
+                        setTimeout(() => marker._icon?.classList.remove('new-marker'), 600);
+                    }
+                }, index * 10); // Délai progressif pour l'apparition des marqueurs (10ms par marqueur)
+            });
+            
+            showStations('all');
+        })
+        .catch(err => console.error("Erreur chargement des stations:", err));
+}
+
 
     // Gestion de la sélection de points sur la carte
     function activateSelectionMode(mode) {
@@ -606,7 +629,7 @@
         return nearest;
     }
 
-    // Gestion des marqueurs de stations
+
     function getStationIcon(station, mode) {
         const isClosed = station.status !== 'OPEN';
         const electricCount = station.electricalBikes || 0;
@@ -614,18 +637,19 @@
         const totalBikes = electricCount + mechanicalCount;
         const isEmpty = totalBikes === 0;
         
-        // Taille de l'icône basée sur le nombre de vélos
-        const minSize = 30, maxSize = 60;
+        // Taille de l'icône basée sur le nombre de vélos - Augmentation de la différence entre min et max
+        const minSize = 25, maxSize = 65;
         let size = minSize;
         
         if (mode === 'all' && !isEmpty && !isClosed) {
-            const ratio = totalBikes / maxBikesCount;
+            // Utilisation d'une fonction non-linéaire pour accentuer la différence
+            const ratio = Math.pow(totalBikes / maxBikesCount, 0.7); // Exposant <1 donne plus de contraste
             size = minSize + (maxSize - minSize) * ratio;
         } else if (mode === 'electric' && electricCount > 0 && !isClosed) {
-            const ratio = electricCount / maxElectricCount;
+            const ratio = Math.pow(electricCount / maxElectricCount, 0.7);
             size = minSize + (maxSize - minSize) * ratio;
         } else if (mode === 'mechanical' && mechanicalCount > 0 && !isClosed) {
-            const ratio = mechanicalCount / maxMechanicalCount;
+            const ratio = Math.pow(mechanicalCount / maxMechanicalCount, 0.7);
             size = minSize + (maxSize - minSize) * ratio;
         }
         
@@ -657,11 +681,15 @@
         });
     }
 
+
     function createMixedIcon(station, size, electricRatio) {
         const container = document.createElement('div');
-        container.style.position = 'relative';
+        container.className = 'proportional-marker-container';
         container.style.width = `${size}px`;
         container.style.height = `${size}px`;
+        container.style.position = 'relative';
+        container.style.overflow = 'hidden';
+        // Retrait de borderRadius, boxShadow et border qui créaient l'effet de bulle
         
         // Élément pour vélos mécaniques (arrière-plan)
         const mechDiv = document.createElement('div');
@@ -672,17 +700,22 @@
         mechDiv.style.height = `${size}px`;
         mechDiv.style.backgroundImage = 'url(images/marker-icon_v_meca.png)';
         mechDiv.style.backgroundSize = 'cover';
+        mechDiv.style.filter = 'saturate(1.4) contrast(1.1)'; // Renforce la saturation et le contraste
+        
+        // Calcule largeur exacte pour éviter les problèmes d'arrondi
+        const elecWidth = Math.max(Math.round(size * electricRatio), 5); // Au moins 5px pour être visible
         
         // Élément pour vélos électriques (partie proportionnelle)
         const elecDiv = document.createElement('div');
         elecDiv.style.position = 'absolute';
         elecDiv.style.top = '0';
         elecDiv.style.left = '0';
-        elecDiv.style.width = Math.round(size * electricRatio) + 'px';
+        elecDiv.style.width = elecWidth + 'px';
         elecDiv.style.height = `${size}px`;
         elecDiv.style.backgroundImage = 'url(images/marker-icon_v_elec.png)';
-        elecDiv.style.backgroundSize = 'cover';
-        elecDiv.style.overflow = 'hidden';
+        elecDiv.style.backgroundSize = `${size}px ${size}px`; // Assure que l'image est à la bonne taille
+        elecDiv.style.filter = 'saturate(1.5) contrast(1.2)'; // Renforce davantage la saturation/contraste
+        // Retrait de la ligne de séparation
         
         container.appendChild(mechDiv);
         container.appendChild(elecDiv);
@@ -695,6 +728,7 @@
             popupAnchor: [0, -size]
         });
     }
+
 
     function showStations(mode) {
         currentDisplayMode = mode;
@@ -719,8 +753,8 @@
             switch(mode) {
                 case 'empty': shouldShow = isEmpty && !isClosed; break;
                 case 'closed': shouldShow = isClosed; break;
-                case 'electric': shouldShow = electricCount > 0 && !isClosed; break;
-                case 'mechanical': shouldShow = mechanicalCount > 0 && !isClosed; break;
+                case 'electric': shouldShow = (electricCount > 0 || isEmpty) && !isClosed; break;
+                case 'mechanical': shouldShow = (mechanicalCount > 0 || isEmpty) && !isClosed; break;
             }
             
             if (shouldShow) {
@@ -729,6 +763,7 @@
             }
         });
     }
+
 
     // Affichage des popups et graphiques
     function buildStationPopupContent(station, label = station.nom) {
@@ -780,6 +815,111 @@
         content += '</div>';
         return content;
     }
+
+
+    // Fonction pour créer et afficher la barre de charge au survol
+    function createCapacityBar(e) {
+        // Ne créer la barre que si le mode actuel est 'all'
+        if (currentDisplayMode !== 'all') return;
+        
+        // Suppression des anciennes barres potentiellement présentes
+        removeCapacityBar();
+        
+        const station = e.target.stationData;
+        if (!station) return;
+        
+        // Récupération des données
+        const electricCount = station.electricalBikes || 0;
+        const mechanicalCount = station.mechanicalBikes || 0;
+        const emptySpots = station.stands || 0;
+        const totalBikes = electricCount + mechanicalCount;
+        const capacity = station.capacity || (electricCount + mechanicalCount + emptySpots);
+        
+        // Créer un conteneur commun
+        const barContainer = document.createElement('div');
+        
+        // Cas 1: Station fermée
+        if (station.status !== 'OPEN') {
+            barContainer.className = 'station-capacity-bar closed-station-message';
+            barContainer.textContent = 'Station fermée';
+            
+            document.body.appendChild(barContainer);
+            
+            // Positionnement sous le marqueur
+            const markerPos = e.target._icon.getBoundingClientRect();
+            barContainer.style.bottom = `${window.innerHeight - markerPos.top + 10}px`;
+            barContainer.style.left = `${markerPos.left + markerPos.width/2}px`;
+            
+            return;
+        }
+        
+        // Cas 2: Station sans vélos
+        if (totalBikes === 0 && emptySpots > 0) {
+            barContainer.className = 'station-capacity-bar empty-station-message';
+            barContainer.textContent = `${emptySpots} places disponibles`;
+            
+            document.body.appendChild(barContainer);
+            
+            // Positionnement sous le marqueur
+            const markerPos = e.target._icon.getBoundingClientRect();
+            barContainer.style.bottom = `${window.innerHeight - markerPos.top + 10}px`;
+            barContainer.style.left = `${markerPos.left + markerPos.width/2}px`;
+            
+            return;
+        }
+        
+        // Cas 3: Station normale avec vélos
+        barContainer.className = 'station-capacity-bar';
+        
+        // Calcul des pourcentages pour chaque segment
+        const electricPercent = (electricCount / capacity) * 100;
+        const mechanicalPercent = (mechanicalCount / capacity) * 100;
+        const emptyPercent = (emptySpots / capacity) * 100;
+        
+        // Le reste du code pour la barre de capacité standard...
+        // (Création des segments, etc.)
+        
+        // Création des segments
+        if (electricCount > 0) {
+            const electric = document.createElement('div');
+            electric.className = 'capacity-segment electric-bikes';
+            electric.style.width = `${electricPercent}%`;
+            electric.title = `${electricCount} vélos électriques`;
+            barContainer.appendChild(electric);
+        }
+        
+        if (mechanicalCount > 0) {
+            const mechanical = document.createElement('div');
+            mechanical.className = 'capacity-segment mechanical-bikes';
+            mechanical.style.width = `${mechanicalPercent}%`;
+            mechanical.title = `${mechanicalCount} vélos mécaniques`;
+            barContainer.appendChild(mechanical);
+        }
+        
+        if (emptySpots > 0) {
+            const empty = document.createElement('div');
+            empty.className = 'capacity-segment empty-spots';
+            empty.style.width = `${emptyPercent}%`;
+            empty.title = `${emptySpots} places libres`;
+            barContainer.appendChild(empty);
+        }
+        
+        // Ajout à la page
+        document.body.appendChild(barContainer);
+        
+        // Positionnement de la barre sous le marqueur
+        const markerPos = e.target._icon.getBoundingClientRect();
+        barContainer.style.left = `${markerPos.left + markerPos.width/2}px`;
+        barContainer.style.bottom = `${window.innerHeight - markerPos.top + 10}px`;
+    }
+
+
+    // Fonction pour supprimer la barre de capacité
+    function removeCapacityBar() {
+        const bars = document.querySelectorAll('.station-capacity-bar');
+        bars.forEach(bar => bar.remove());
+    }
+
 
     function formatAddress(station) {
         let address = station.adresse1 || '';
