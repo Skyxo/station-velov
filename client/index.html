@@ -14,11 +14,11 @@
     <header>
         <nav class="top-controls">
             <div id="filters">
-                <button onclick="showStations('all')">Toutes</button>
-                <button onclick="showStations('electric')"><img src="images/lightning.png" alt="Vélos électriques"></button>
-                <button onclick="showStations('mechanical')"><img src="images/jambe.png" alt="Vélos mécaniques"></button>
-                <button onclick="showStations('empty')"><img src="images/empty.png" alt="Stations vides" style="height:20px;"></button>
-                <button onclick="showStations('closed')"><img src="images/closed.png" alt="Stations fermées" style="height:20px;"></button>
+                <button onclick="showStations('all')" data-tooltip="Toutes les stations disponibles">Toutes</button>
+                <button onclick="showStations('electric')" data-tooltip="Stations avec vélos électriques"><img src="images/lightning.png" alt="Vélos électriques"></button>
+                <button onclick="showStations('mechanical')" data-tooltip="Stations avec vélos mécaniques"><img src="images/jambe.png" alt="Vélos mécaniques"></button>
+                <button onclick="showStations('empty')" data-tooltip="Stations vides"><img src="images/empty.png" alt="Stations vides" style="height:20px;"></button>
+                <button onclick="showStations('closed')" data-tooltip="Stations fermées"><img src="images/closed.png" alt="Stations fermées" style="height:20px;"></button>
             </div>
             <h1>Stations Vélo'v</h1>
             <button id="toggle-route-form" class="toggle-button">
@@ -719,8 +719,8 @@
             switch(mode) {
                 case 'empty': shouldShow = isEmpty && !isClosed; break;
                 case 'closed': shouldShow = isClosed; break;
-                case 'electric': shouldShow = electricCount > 0 || isClosed || isEmpty; break;
-                case 'mechanical': shouldShow = mechanicalCount > 0 || isClosed || isEmpty; break;
+                case 'electric': shouldShow = electricCount > 0 && !isClosed; break;
+                case 'mechanical': shouldShow = mechanicalCount > 0 && !isClosed; break;
             }
             
             if (shouldShow) {

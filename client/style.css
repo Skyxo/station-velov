@@ -29,6 +29,18 @@ header {
     width: 100%;
     padding: 0 20px;
     box-sizing: border-box;
+    position: relative;
+}
+
+.top-controls h1 {
+    flex-grow: 1;
+    text-align: center;
+    margin: 0;
+    position: absolute;
+    left: 0;
+    right: 0;
+    width: 100%;
+    z-index: 0;
 }
 
 header h1 {
@@ -44,6 +56,9 @@ header h1 {
 #filters {
     display: flex;
     gap: 10px;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 10;
 }
 
 #filters button {
@@ -52,6 +67,7 @@ header h1 {
     border-radius: 4px;
     padding: 8px 12px;
     cursor: pointer;
+    position: relative;
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
     display: flex;
     align-items: center;
@@ -64,6 +80,60 @@ header h1 {
     vertical-align: middle;
 }
 
+#filters button::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: -35px;
+    background-color: white;
+    color: #333;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    white-space: nowrap;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s, visibility 0.3s;
+    z-index: 1001;
+    pointer-events: none;
+}
+
+#filters button::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: -10px;
+    border-width: 0 8px 8px 8px;
+    border-style: solid;
+    border-color: transparent transparent white transparent;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s, visibility 0.3s;
+    z-index: 1001;
+    pointer-events: none;
+}
+
+
+/* Style spécifique pour le premier bouton (Toutes) */
+#filters button:first-child::after {
+    left: 0;
+    transform: translateX(0);
+}
+
+#filters button:first-child::before {
+    left: 10px;
+    transform: translateX(0);
+}
+
+#filters button:hover::after,
+#filters button:hover::before {
+    opacity: 1;
+    visibility: visible;
+}
+
 /* Map */
 #map {
     position: absolute;
@@ -74,6 +144,11 @@ header h1 {
     width: 100%;
     height: calc(100% - 60px);
     z-index: 0;
+}
+
+#toggle-route-form {
+    position: relative;
+    z-index: 10;
 }
 
 /* Panel latéral (itinéraire) */
