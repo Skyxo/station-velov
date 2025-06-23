@@ -35,14 +35,22 @@
             <button id="close-panel" class="close-button">&times;</button>
         </div>
         <form id="route-form">
-            <div class="form-group">
-                <label for="start-address">Adresse de départ</label>                
-                    <input type="text" id="start-address" name="start" placeholder="Ex : 10 Rue de la République, Lyon" required>
+            <!-- Modifier les div des groupes d'adresses dans le route-form -->
+            <div class="form-group address-container">
+                <label for="start-address">Adresse de départ</label>
+                <div class="address-input-wrapper">
+                    <input type="text" id="start-address" name="start" placeholder="Ex : 10 Rue de la République, Lyon" required autocomplete="off">
+                    <ul id="start-suggestions" class="address-suggestions"></ul>
+                </div>
                 <button type="button" id="select-start-button" class="map-select-button">Sélectionner sur la carte</button>
             </div>
-            <div class="form-group">
-                <label for="end-address">Adresse d'arrivée</label>                
-                    <input type="text" id="end-address" name="end" placeholder="Ex : 5 Place Bellecour, Lyon" required>
+
+            <div class="form-group address-container">
+                <label for="end-address">Adresse d'arrivée</label>
+                <div class="address-input-wrapper">
+                    <input type="text" id="end-address" name="end" placeholder="Ex : 5 Place Bellecour, Lyon" required autocomplete="off">
+                    <ul id="end-suggestions" class="address-suggestions"></ul>
+                </div>
                 <button type="button" id="select-end-button" class="map-select-button">Sélectionner sur la carte</button>
             </div>
             <div class="form-group">
@@ -55,6 +63,10 @@
             </div>
             <button type="button" id="reset-route-button" class="reset-button">Réinitialiser</button>
             <button type="button" id="calculate-route-button" class="submit-button">Calculer l'itinéraire</button>
+            <!-- Nouvel élément pour afficher le temps de trajet -->
+            <div id="travel-time-container" class="travel-time">
+                <span id="travel-time">Temps estimé: --</span>
+            </div>
             <img id="velo_margot" src="images/velo1.jpg">
         </form>
     </div>
@@ -101,6 +113,11 @@
     window.routeSegments = [];
     window.stationMarkers = [];
 
+    // Variables pour contrôler la saisie et les délais
+    let typingTimer;
+    const doneTypingInterval = 300; // Réduit à 300ms au lieu de 500ms
+    const suggestionsCache = {}; // Cache pour éviter des appels API répétés
+
     // Icônes
     const redIcon = L.icon({
         iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
@@ -127,6 +144,10 @@
         L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png', {
             attribution: '&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
         }).addTo(map);
+
+        // Toujours initialiser avec 'all', quel que soit le filtre précédent
+        currentDisplayMode = 'all';
+        localStorage.setItem('currentFilterMode', 'all');
         
         map.on('click', handleMapClick);
         
@@ -139,63 +160,288 @@
         setupEventListeners();
     }
 
- 
-// Modifier la fonction loadStations pour ajouter l'animation d'apparition des marqueurs
-
-function loadStations() {
-    fetch('/stations_full')
-        .then(response => response.json())
-        .then(data => {
-            stations = data;
-            window.stations = data;
+    // Fonction pour récupérer des suggestions d'adresses
+    async function getSuggestions(query, isStart = true) {
+        if (!query || query.length < 3) return []; // Ignorer les requêtes trop courtes
+        
+        // Vérifier si on a déjà ce résultat en cache
+        const cacheKey = query.toLowerCase();
+        if (suggestionsCache[cacheKey]) {
+            return suggestionsCache[cacheKey];
+        }
+        
+        try {
+            // Montrer l'indicateur de chargement
+            const containerId = isStart ? 'start-suggestions' : 'end-suggestions';
+            const container = document.getElementById(containerId);
+            container.innerHTML = '<li class="suggestion-item loading">Recherche en cours...</li>';
+            container.style.display = 'block';
             
-            // Calculer les maximums
-            maxBikesCount = Math.max(...data.map(s => s.bikes || 0));
-            maxElectricCount = Math.max(...data.map(s => s.electricalBikes || 0));
-            maxMechanicalCount = Math.max(...data.map(s => s.mechanicalBikes || 0));
-            
-            // Créer les marqueurs avec animation séquentielle
-            data.forEach((station, index) => {
-                const marker = L.marker([station.lat, station.lon], {
-                    icon: getStationIcon(station, 'all')
-                });
-                
-                marker.stationData = station;
-                marker.stationId = station.idstation;
-                
-                // Ajout des écouteurs pour la barre de capacité
-                marker.on('mouseover', createCapacityBar);
-                marker.on('mouseout', removeCapacityBar);
-                
-                marker.on('click', function(e) {
-                    // Ajouter une classe pour le style de popup ouvert
-                    const icons = document.querySelectorAll('.leaflet-marker-icon');
-                    icons.forEach(icon => icon.classList.remove('active-popup'));
-                    e.target._icon?.classList.add('active-popup');
+            // Utiliser l'API de géocodage pour obtenir des suggestions
+            const url = 'https://nominatim.openstreetmap.org/search'
+                    + '?format=json&limit=5&countrycodes=fr'
+                    + '&viewbox=4.7,45.6,5.0,45.9&bounded=1'
+                    + `&q=${encodeURIComponent(query)}`;
                     
-                    const popup = buildStationPopupContent(e.target.stationData);
-                    e.target.unbindPopup().bindPopup(popup).openPopup();
-                    initRanges(e.target.stationData.idstation);
-                    removeCapacityBar(); // Enlever la barre quand le popup s'ouvre
-                });
-                
-                window.stationMarkers.push({marker, data: station});
-                
-                // Animation d'apparition avec délai progressif pour un effet d'écoulement
-                setTimeout(() => {
-                    if (marker._icon) {
-                        marker._icon.classList.add('new-marker');
-                        // Retirer la classe après l'animation pour éviter les conflits
-                        setTimeout(() => marker._icon?.classList.remove('new-marker'), 600);
-                    }
-                }, index * 10); // Délai progressif pour l'apparition des marqueurs (10ms par marqueur)
+            const response = await fetch(url, {
+                headers: {'Accept-Language': 'fr'}
             });
             
-            showStations('all');
-        })
-        .catch(err => console.error("Erreur chargement des stations:", err));
-}
+            if (!response.ok) throw new Error(`Erreur géocodage: ${response.status}`);
+            
+            const data = await response.json();
+            const results = data.map(item => ({
+                displayName: item.display_name,
+                lat: parseFloat(item.lat),
+                lon: parseFloat(item.lon)
+            }));
+            
+            // Sauvegarder en cache
+            suggestionsCache[cacheKey] = results;
+            return results;
+        } catch (error) {
+            console.error("Erreur lors de la récupération des suggestions:", error);
+            return [];
+        }
+    }
 
+    // Fonction pour afficher les suggestions
+    function displaySuggestions(suggestions, containerId, inputId) {
+        const container = document.getElementById(containerId);
+        container.innerHTML = '';
+        
+        if (suggestions.length === 0) {
+            container.style.display = 'none';
+            return;
+        }
+        
+        suggestions.forEach((suggestion, index) => {
+            const li = document.createElement('li');
+            li.className = 'suggestion-item';
+            li.textContent = suggestion.displayName;
+            li.dataset.lat = suggestion.lat;
+            li.dataset.lon = suggestion.lon;
+            li.dataset.index = index;
+            
+            li.addEventListener('click', function() {
+                selectSuggestion(suggestion, inputId);
+                container.style.display = 'none';
+            });
+            
+            container.appendChild(li);
+        });
+        
+        container.style.display = 'block';
+    }
+
+    // Amélioration de la fonction de sélection
+    function selectSuggestion(suggestion, inputId) {
+        const inputElement = document.getElementById(inputId);
+        
+        // Ajout d'un petit délai pour éviter les problèmes de timing
+        setTimeout(() => {
+            inputElement.value = suggestion.displayName;
+            
+            // Stocker les coordonnées géographiques
+            storeCoordinates(inputId, {
+                lat: suggestion.lat,
+                lng: suggestion.lon
+            });
+            
+            // Force le focus sur l'input pour éviter les problèmes de blur
+            inputElement.focus();
+        }, 10);
+    }
+
+    // Configurer les gestionnaires d'événements pour les champs d'adresse
+    function setupAddressSuggestions() {
+        // Configuration pour l'adresse de départ
+        setupInputWithSuggestions('start-address', 'start-suggestions');
+        
+        // Configuration pour l'adresse d'arrivée
+        setupInputWithSuggestions('end-address', 'end-suggestions');
+        
+        // Fermer les suggestions si on clique ailleurs
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.address-input-wrapper')) {
+                document.querySelectorAll('.address-suggestions').forEach(el => {
+                    el.style.display = 'none';
+                });
+            }
+        });
+
+        // Gérer les clics sur la page
+        document.addEventListener('click', function(e) {
+            const allSuggestions = document.querySelectorAll('.address-suggestions');
+            
+            // Ne fermer les suggestions que si le clic est en dehors des zones de suggestions
+            // ET en dehors des champs de saisie
+            if (!e.target.closest('.address-input-wrapper') && 
+                !e.target.closest('.address-suggestions')) {
+                allSuggestions.forEach(el => {
+                    el.style.display = 'none';
+                });
+            }
+        });
+    }
+
+    function setupInputWithSuggestions(inputId, suggestionsId) {
+        const inputElement = document.getElementById(inputId);
+        const suggestionsContainer = document.getElementById(suggestionsId);
+        
+        // Événement d'entrée (lorsque l'utilisateur tape)
+        inputElement.addEventListener('input', function() {
+            clearTimeout(typingTimer);
+            const query = this.value.trim();
+            
+            // Commencer à montrer les suggestions dès que possible
+            if (query.length >= 2) {
+                // Indiquer le chargement immédiatement
+                suggestionsContainer.innerHTML = '<li class="suggestion-item loading">Recherche en cours...</li>';
+                suggestionsContainer.style.display = 'block';
+                
+                // Attendre un peu que l'utilisateur finisse de taper
+                typingTimer = setTimeout(async () => {
+                    if (query.length >= 2) {
+                        const isStart = inputId === 'start-address';
+                        const suggestions = await getSuggestions(query, isStart);
+                        displaySuggestions(suggestions, suggestionsId, inputId);
+                    } else {
+                        suggestionsContainer.style.display = 'none';
+                    }
+                }, doneTypingInterval);
+            } else {
+                suggestionsContainer.style.display = 'none';
+            }
+        });
+        
+        // Empêcher la fermeture quand on clique sur les suggestions
+        suggestionsContainer.addEventListener('mousedown', function(e) {
+            e.preventDefault(); // Empêche le blur de l'input avant le clic sur une suggestion
+            e.stopPropagation(); // Arrête la propagation de l'événement
+        });
+        
+        // Gérer la navigation au clavier dans les suggestions
+        inputElement.addEventListener('keydown', function(e) {
+            const suggestionsList = document.getElementById(suggestionsId);
+            if (suggestionsList.style.display !== 'block') return;
+            
+            const items = suggestionsList.querySelectorAll('.suggestion-item:not(.loading)');
+            if (items.length === 0) return;
+            
+            let selectedIndex = -1;
+            
+            // Trouver l'élément actuellement sélectionné
+            items.forEach((item, index) => {
+                if (item.classList.contains('selected')) {
+                    selectedIndex = index;
+                }
+            });
+            
+            switch (e.key) {
+                case 'ArrowDown':
+                    e.preventDefault();
+                    if (selectedIndex < items.length - 1) {
+                        if (selectedIndex >= 0) items[selectedIndex].classList.remove('selected');
+                        items[selectedIndex + 1].classList.add('selected');
+                        items[selectedIndex + 1].scrollIntoView({ block: 'nearest' });
+                    }
+                    break;
+                    
+                case 'ArrowUp':
+                    e.preventDefault();
+                    if (selectedIndex > 0) {
+                        items[selectedIndex].classList.remove('selected');
+                        items[selectedIndex - 1].classList.add('selected');
+                        items[selectedIndex - 1].scrollIntoView({ block: 'nearest' });
+                    }
+                    break;
+                    
+                case 'Enter':
+                    e.preventDefault();
+                    if (selectedIndex >= 0) {
+                        const selected = items[selectedIndex];
+                        selectSuggestion({
+                            displayName: selected.textContent,
+                            lat: parseFloat(selected.dataset.lat),
+                            lon: parseFloat(selected.dataset.lon)
+                        }, inputId);
+                        suggestionsList.style.display = 'none';
+                    }
+                    break;
+                    
+                case 'Escape':
+                    e.preventDefault();
+                    suggestionsList.style.display = 'none';
+                    break;
+            }
+        });
+        
+        // Afficher les suggestions lors du focus si texte déjà présent
+        inputElement.addEventListener('focus', async function() {
+            const query = this.value.trim();
+            if (query.length >= 2) {
+                const isStart = inputId === 'start-address';
+                const suggestions = await getSuggestions(query, isStart);
+                displaySuggestions(suggestions, suggestionsId, inputId);
+            }
+        });
+    }
+
+    // Modifier la fonction loadStations pour ajouter l'animation d'apparition des marqueurs
+
+    function loadStations() {
+        fetch('/stations_full')
+            .then(response => response.json())
+            .then(data => {
+                stations = data;
+                window.stations = data;
+                
+                // Calculer les maximums une seule fois
+                maxBikesCount = Math.max(...data.map(s => s.bikes || 0));
+                maxElectricCount = Math.max(...data.map(s => s.electricalBikes || 0));
+                maxMechanicalCount = Math.max(...data.map(s => s.mechanicalBikes || 0));
+                
+                // Utiliser un fragment pour regrouper les opérations DOM
+                const markers = [];
+                
+                // Créer les marqueurs sans animation d'apparition séquentielle
+                data.forEach(station => {
+                    const marker = L.marker([station.lat, station.lon], {
+                        icon: getStationIcon(station, 'all')
+                    });
+                    
+                    marker.stationData = station;
+                    marker.stationId = station.idstation;
+                    
+                    // Ajout des écouteurs pour la barre de capacité
+                    marker.on('mouseover', createCapacityBar);
+                    marker.on('mouseout', removeCapacityBar);
+                    marker.on('click', handleMarkerClick);
+                    
+                    markers.push({marker, data: station});
+                });
+            
+                window.stationMarkers = markers;
+            
+                // Remplacer showStations('all') par:
+                const savedMode = localStorage.getItem('currentFilterMode') || 'all';
+                showStations(savedMode); // Utiliser le mode sauvegardé
+            })
+            .catch(err => console.error("Erreur chargement des stations:", err));
+    }
+
+    // Fonction séparée pour gérer le clic sur un marqueur
+    function handleMarkerClick(e) {
+        const icons = document.querySelectorAll('.leaflet-marker-icon');
+        icons.forEach(icon => icon.classList.remove('active-popup'));
+        e.target._icon?.classList.add('active-popup');
+        
+        const popup = buildStationPopupContent(e.target.stationData);
+        e.target.unbindPopup().bindPopup(popup).openPopup();
+        initRanges(e.target.stationData.idstation);
+        removeCapacityBar();
+    }
 
     // Gestion de la sélection de points sur la carte
     function activateSelectionMode(mode) {
@@ -284,25 +530,59 @@ function loadStations() {
             return;
         }
         
+        // Si les deux points ont des coordonnées exactes (placés sur la carte)
         if (startInput.dataset.hasExactCoordinates === "true" && 
             endInput.dataset.hasExactCoordinates === "true" && 
             startMarker && endMarker) {
             calculateRouteFromMarkers();
         } else {
+            // Sinon, on géocode les adresses
+            clearRoutes();
+            
+            // Nettoyage des marqueurs existants
             if (startMarker) {
                 map.removeLayer(startMarker);
                 startMarker = null;
-                startInput.removeAttribute('data-has-exact-coordinates');
-                document.getElementById('reset-start-button').style.display = 'none';
             }
             if (endMarker) {
                 map.removeLayer(endMarker);
                 endMarker = null;
-                endInput.removeAttribute('data-has-exact-coordinates');
-                document.getElementById('reset-end-button').style.display = 'none';
             }
-            calculateRoute(startAddress, endAddress);
+            
+            // Géocodage en parallèle des deux adresses
+            Promise.all([
+                geocode(startAddress),
+                geocode(endAddress)
+            ])
+            .then(([startCoord, endCoord]) => {
+                console.log("Coordonnées obtenues:", startCoord, endCoord);
+                
+                // Création des marqueurs
+                startMarker = L.marker(startCoord, {
+                    icon: greenIcon,
+                    draggable: true
+                }).addTo(map);
+                
+                endMarker = L.marker(endCoord, {
+                    icon: redIcon,
+                    draggable: true
+                }).addTo(map);
+                
+                // Mise à jour des attributs des champs
+                storeCoordinates('start-address', {lat: startCoord[0], lng: startCoord[1]});
+                storeCoordinates('end-address', {lat: endCoord[0], lng: endCoord[1]});
+                
+                // Calcul de l'itinéraire avec les marqueurs créés
+                calculateRouteFromMarkers();
+            })
+            .catch(error => {
+                console.error("Erreur de géocodage:", error);
+                alert("Impossible de localiser une ou les deux adresses. Veuillez vérifier votre saisie ou sélectionner les points sur la carte.");
+            });
         }
+        
+        // S'assurer que le bouton reste visible
+        document.getElementById('calculate-route-button').style.display = 'block';
     }
 
     function calculateRouteFromMarkers() {
@@ -357,15 +637,35 @@ function loadStations() {
             }
         ];
         
+        // Variables pour cumuler le temps total
+        let totalTimeSeconds = 0;
+        let segmentsProcessed = 0;
+        
         segments.forEach(({waypoints, color}) => {
             router.route(waypoints, (err, routes) => {
-                if (err || !routes.length) return console.error('Erreur routage', err);
+                if (err || !routes.length) {
+                    console.error('Erreur routage', err);
+                    return;
+                }
                 
-                const line = L.Routing.line(routes[0], {
+                const route = routes[0];
+                
+                // Ajouter le temps de ce segment au total
+                totalTimeSeconds += route.summary.totalTime;
+                
+                const line = L.Routing.line(route, {
                     styles: [{color, weight: 4, opacity: 0.8}]
                 }).addTo(map);
                 
                 window.routeSegments.push(line);
+                
+                // Incrémente le compteur de segments traités
+                segmentsProcessed++;
+                
+                // Si tous les segments sont traités, on affiche le temps total
+                if (segmentsProcessed === segments.length) {
+                    displayTravelTime(totalTimeSeconds);
+                }
             });
         });
         
@@ -378,6 +678,30 @@ function loadStations() {
         ]);
         map.fitBounds(bounds, {padding: [50, 50]});
     }
+
+
+    // Fonction pour formater et afficher le temps de trajet
+    function displayTravelTime(timeSeconds) {
+        const timeContainer = document.getElementById('travel-time-container');
+        const timeDisplay = document.getElementById('travel-time');
+        
+        // Convertir les secondes en minutes et heures
+        const hours = Math.floor(timeSeconds / 3600);
+        const minutes = Math.floor((timeSeconds % 3600) / 60);
+        
+        let formattedTime = 'Temps estimé: ';
+        
+        if (hours > 0) {
+            formattedTime += `${hours} h ${minutes} min`;
+        } else {
+            formattedTime += `${minutes} minutes`;
+        }
+        
+        // Afficher le temps
+        timeDisplay.textContent = formattedTime;
+        timeContainer.classList.add('active');
+    }
+
 
     async function calculateRoute(startAddress, endAddress) {
         try {
@@ -733,6 +1057,12 @@ function loadStations() {
     function showStations(mode) {
         currentDisplayMode = mode;
         
+        // Sauvegarder le mode actuel
+        localStorage.setItem('currentFilterMode', mode);
+
+        // Appliquer les couleurs correspondant au mode
+        setFilterColors(mode);
+        
         // Supprimer tous les marqueurs existants
         map.eachLayer(function(layer) {
             if (layer instanceof L.Marker && layer !== startMarker && layer !== endMarker) {
@@ -763,7 +1093,7 @@ function loadStations() {
             }
         });
     }
-
+    
 
     // Affichage des popups et graphiques
     function buildStationPopupContent(station, label = station.nom) {
@@ -772,50 +1102,54 @@ function loadStations() {
         content += '<h3>' + label + '</h3>';
         content += '<div class="address">' + formatAddress(station) + '</div>';
 
+        // Nouvelle grille d'informations
+        content += '<div class="info-grid">';
+        
+        // Statut
         const statusClass = station.status === 'OPEN' ? 'status-open' : 'status-closed';
         const statusText = station.status === 'OPEN' ? 'Ouverte' : 'Fermée';
-        content += '<div class="info-row"><span class="label">Statut :</span> <span class="value ' + statusClass + '">' + statusText + '</span></div>';
-        content += '<div class="info-row"><span class="label">Capacité :</span> <span class="value">' + station.capacity + ' bornettes</span></div>';
-        content += '<div class="info-row"><span class="label">Places libres :</span> <span class="value">' + station.stands + '</span></div>';
-        content += '<div class="info-row"><span class="label">Vélos disponibles :</span> <span class="value">' + station.bikes + '</span></div>';
-
-        content += '<div class="bikes-available">';
-        content += '<div class="bike-type"><div class="bike-count">' + station.electricalBikes + '</div><div>Électriques</div></div>';
-        content += '<div class="bike-type"><div class="bike-count">' + station.mechanicalBikes + '</div><div>Mécaniques</div></div>';
+        content += `<div class="info-cell"><span class="label">Statut: </span><span class="value ${statusClass}">${statusText}</span></div>`;
+        
+        // Capacité
+        content += `<div class="info-cell"><span class="label">Capacité: </span><span class="value">${station.capacity || 0}</span></div>`;
+        
+        // Places libres
+        content += `<div class="info-cell"><span class="label">Places libres: </span><span class="value">${station.stands || 0}</span></div>`;
+        
+        // Vélos disponibles
+        content += `<div class="info-cell"><span class="label">Vélos disponibles: </span><span class="value">${station.bikes || 0}</span></div>`;
+        
         content += '</div>';
 
-        if (station.stationbonus === 'oui') {
-            content += '<div class="info-row"><span class="label">Station bonus</span> <span class="value">✓</span></div>';
-        }
+        // Vélos par type
+        content += '<div class="bikes-available">';
+        content += `<div class="bike-type electric"><div class="bike-count">${station.electricalBikes || 0}</div><div>Électriques</div></div>`;
+        content += `<div class="bike-type mechanical"><div class="bike-count">${station.mechanicalBikes || 0}</div><div>Mécaniques</div></div>`;
+        content += '</div>';
 
-        content += '<div class="last-update">Dernière mise à jour : ' + formatDate(station.horodate) + '</div>';
+        // Dernière mise à jour
+        content += `<div class="last-update">Mise à jour: ${formatDate(station.horodate || '')}</div>`;
 
-        content += `
-            <div class="date-selector">
-                <div class="date-group">
-                    <label>Du:</label>
-                    <div class="date-inputs">
-                        <select id="startDay-${station.idstation}" class="date-select"></select>
-                        <select id="startHour-${station.idstation}" class="time-select"></select>
-                    </div>
-                </div>
-                <div class="date-group">
-                    <label>Au:</label>
-                    <div class="date-inputs">
-                        <select id="endDay-${station.idstation}" class="date-select"></select>
-                        <select id="endHour-${station.idstation}" class="time-select"></select>
-                    </div>
-                </div>
-                <button class="graph-button" onclick="loadHistoryImg(${station.idstation})">
-                    Afficher l'historique
-                </button>
+        // Section de sélection de date
+        content += `<div class="date-selector">
+            <div class="date-group">
+                <label>Du:</label>
+                <select id="startDay-${station.idstation}" class="date-select"></select>
+                <select id="startHour-${station.idstation}" class="time-select"></select>
             </div>
-        `;
+            <div class="date-group">
+                <label>Au:</label>
+                <select id="endDay-${station.idstation}" class="date-select"></select>
+                <select id="endHour-${station.idstation}" class="time-select"></select>
+            </div>
+            <button class="graph-button" onclick="loadHistoryImg(${station.idstation})">
+                Afficher l'historique
+            </button>
+        </div>`;
 
         content += '</div>';
         return content;
     }
-
 
     // Fonction pour créer et afficher la barre de charge au survol
     function createCapacityBar(e) {
@@ -1147,10 +1481,18 @@ function loadStations() {
         // Nettoyer les routes
         clearRoutes();
         
+        // Cacher le temps de trajet
+        document.getElementById('travel-time-container').classList.remove('active');
+        
         // Réafficher toutes les stations selon le mode actuel
         showStations(currentDisplayMode);
-    }    // Gestionnaires d'événements    
+    }
+    
+    
     function setupEventListeners() {
+
+        // Ajouter configuration des suggestions d'adresses
+        setupAddressSuggestions();
         // Formulaire d'itinéraire
         document.getElementById('calculate-route-button').addEventListener('click', calculateItinerary);
         document.getElementById('reset-route-button').addEventListener('click', e => {
@@ -1218,56 +1560,57 @@ function loadStations() {
         document.getElementById(resetButtonId).style.display = 'none';
     }
 
-    function calculateRoute() {
-        // Récupérer les adresses
-        const startAddress = document.getElementById('startAddress').value;
-        const endAddress = document.getElementById('endAddress').value;
+    function setFilterColors(mode) {
+        // Palette de couleurs pour chaque mode
+        const colors = {
+            'all': '#4CAF50',         // Vert pour toutes les stations
+            'electric': '#2196F3',    // Bleu pour vélos électriques
+            'mechanical': '#4CAF50',  // Orange pour vélos mécaniques
+            'empty': '#9E9E9E',       // Gris pour stations vides
+            'closed': '#F44336'       // Rouge pour stations fermées
+        };
+        // Obtenir la couleur correspondante au mode
+        const color = colors[mode] || colors.all;
+        // header <h1>
+        const h1 = document.querySelector('header h1');
+        h1.style.backgroundColor = color;
+        h1.parentNode.style.backgroundColor = color;
+        h1.parentNode.parentNode.style.backgroundColor = color;
+
+        // bouton "Calculer l'itinéraire"
+        const submitBtn = document.querySelector('.submit-button');
+        submitBtn.style.backgroundColor = color;
+
+        // bouton "Calculer l'itinéraire"
+        const mapSelecB = document.querySelector('.map-select-button');
+        mapSelecB.style.backgroundColor = color;
+
+        // bouton "Calculer l'itinéraire"
+        const mapSelecEndB = document.querySelector('#select-end-button');
+        mapSelecEndB.style.backgroundColor = color;
+
+        // bouton "Calculer l'itinéraire"
+        const resB = document.querySelector('.reset-button');
+        resB.style.backgroundColor = color;
+
+        // titre <h2> du panneau itinéraire
+        const panelH2 = document.querySelector('.panel-header h2');
+        panelH2.parentNode.style.backgroundColor = color;
         
-        if (!startAddress || !endAddress) {
-            alert('Veuillez entrer les adresses de départ et d\'arrivée');
-            return;
-        }
+        // NOUVELLES MODIFICATIONS:
         
-        // Géocodage
-        Promise.all([
-            geocodeAddress(startAddress),
-            geocodeAddress(endAddress)
-        ])
-        .then(([startCoord, endCoord]) => {
-            // Nettoyer les points existants
-            if (startMarker) map.removeLayer(startMarker);
-            if (endMarker) map.removeLayer(endMarker);
-            
-            // Créer les nouveaux marqueurs
-            startMarker = L.marker(startCoord, {
-                draggable: true,
-                icon: L.icon({
-                    iconUrl: 'images/jambe.png',
-                    iconSize: [25, 41],
-                    iconAnchor: [12, 41],
-                    popupAnchor: [1, -34]
-                })
-            }).addTo(map)
-              .on('dragend', calculateRouteFromMarkers);
-              
-            endMarker = L.marker(endCoord, {
-                draggable: true,
-                icon: L.icon({
-                    iconUrl: 'images/jambe2.png',
-                    iconSize: [25, 41],
-                    iconAnchor: [12, 41],
-                    popupAnchor: [1, -34]
-                })
-            }).addTo(map)
-              .on('dragend', calculateRouteFromMarkers);
-            
-            // Calculer l'itinéraire
-            calculateRouteFromMarkers();
-        })
-        .catch(error => {
-            console.error('Erreur de géocodage:', error);
-            alert('Erreur lors du géocodage des adresses. Vérifiez la connexion et les adresses saisies.');
-        });
+        // titre "Évolution de la station" (entête du panneau graphique)
+        const graphPanelHeader = document.querySelector('#graph-panel .panel-header');
+        if (graphPanelHeader) graphPanelHeader.style.backgroundColor = color;
+        
+        // bouton "Mettre à jour le graphique"
+        const updateButton = document.querySelector('.update-button');
+        if (updateButton) updateButton.style.backgroundColor = color;
+        
+        // Mettre à jour le style CSS pour les boutons d'historique qui seront créés dans les popups
+        // Ceci est nécessaire car ces boutons sont générés dynamiquement quand on clique sur une station
+        document.documentElement.style.setProperty('--current-mode-color', color);
     }
+
 </script>
 </html> 
