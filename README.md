@@ -72,15 +72,14 @@ Au clic sur un marqueur, des **informations détaillées** s’affichent :
 2. Indiquer une **date de début** et une **date de fin**
 3. Cliquer sur **Afficher l’historique**
 
-Graphique d'historique
-<img width="652" height="882" alt="image" src="https://github.com/user-attachments/assets/0ad130f1-ea96-49a5-adb7-81aeaafbe465" />
-
 <p align="center">
-  <img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/73105a21-7699-48d9-b375-97c21a73b538" />
+  <img width="659" height="804" alt="Graphique d'historique" src="https://github.com/user-attachments/assets/a4e90515-25e7-4b9b-9306-bbaed8dc9290" />
   <br>
   <em>Graphique d'historique</em>
 </p>
 
+
+<img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/73105a21-7699-48d9-b375-97c21a73b538" />
 
 Un graphique montrera l’évolution de :
 - Nombre de vélos disponibles
@@ -135,5 +134,6 @@ Ce projet a été réalisé par :
 - **Margot Mauny**
 - **Charles Bergeat**
 - **Arthur Kowalski**
+
 
 
