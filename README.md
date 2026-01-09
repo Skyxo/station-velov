@@ -23,6 +23,8 @@
 
 ## 🗺️ Fonctionnement général
 
+![Vue globale de la carte](screenshots/carte_globale.png)
+
 L'application web affiche une carte interactive de la ville de **Lyon**.  
 Chaque station Vélo’v y est représentée par un **marqueur en forme de vélo**.
 
@@ -32,6 +34,8 @@ Chaque station Vélo’v y est représentée par un **marqueur en forme de vélo
 - **Couleur du marqueur** : le marqueur est composé de deux couleurs qui indiquent la répartition entre vélos mécaniques et vélos électriques.
   - **Bleu** : proportion de vélos électriques.
   - **Vert** : proportion de vélos mécaniques.
+
+![Détail d'un marqueur](screenshots/marqueur_detail.png)
 
 Au survol du marqueur, une barre de proportion apparaît montrant :
 - Part de vélos mécaniques (vert)
@@ -53,6 +57,8 @@ Au clic sur un marqueur, des **informations détaillées** s’affichent :
 1. Cliquer sur une station
 2. Indiquer une **date de début** et une **date de fin**
 3. Cliquer sur **Afficher l’historique**
+
+![Graphique d'historique](screenshots/graphique_historique.png)
 
 Un graphique montrera l’évolution de :
 - Nombre de vélos disponibles
@@ -77,6 +83,8 @@ Un menu de filtres est accessible en bas à gauche de la page. Il permet de n’
 ---
 
 ## 🚴‍♂️ Fonctionnalité Itinéraire
+
+![Interface itinéraire](screenshots/itineraire.png)
 
 Un bouton **Itinéraire** (en haut à droite) permet de planifier un trajet combinant marche et vélo.
 
