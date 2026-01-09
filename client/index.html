@@ -247,6 +247,8 @@
                 lat: suggestion.lat,
                 lng: suggestion.lon
             });
+
+            console.log("Coordonnées obtenues:", suggestion.lat, suggestion.lon);
             
             // Force le focus sur l'input pour éviter les problèmes de blur
             inputElement.focus();
@@ -845,7 +847,9 @@
         } catch (error) {
             console.error('Erreur géocodage inverse:', error);
         }
-    }    async function geocode(address) {
+    }    
+    
+    async function geocode(address) {
         try {
             // Vérifier si on a des coordonnées exactes pour cette adresse
             const inputElement = document.querySelector(`input[value="${address}"]`) || 
