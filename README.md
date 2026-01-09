@@ -51,7 +51,7 @@ Au survol du marqueur, une barre de proportion apparaît montrant :
 - Part de places libres (gris)
 
 <p align="center">
-  <img width="434" height="589" alt="Informations détaillées" src="https://github.com/user-attachments/assets/74e3352d-0041-4980-a6b3-a0ae80e111a6" />
+  <img width="356" height="483" alt="Informations détaillées" src="https://github.com/user-attachments/assets/74e3352d-0041-4980-a6b3-a0ae80e111a6" />
   <br>
   <em>Informations détaillées</em>
 </p>
@@ -134,6 +134,7 @@ Ce projet a été réalisé par :
 - **Margot Mauny**
 - **Charles Bergeat**
 - **Arthur Kowalski**
+
 
 
 
