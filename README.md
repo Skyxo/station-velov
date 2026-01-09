@@ -51,15 +51,9 @@ Au survol du marqueur, une barre de proportion apparaît montrant :
 - Part de places libres (gris)
 
 <p align="center">
-  <img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/73105a21-7699-48d9-b375-97c21a73b538" />
+  <img width="434" height="589" alt="Informations détaillées" src="https://github.com/user-attachments/assets/74e3352d-0041-4980-a6b3-a0ae80e111a6" />
   <br>
-  <em>Graphique d'historique</em>
-</p>
-
-<p align="center">
-  <img width="1919" height="1079" alt="Graphique d'historique" src="https://github.com/user-attachments/assets/289a51e5-1ac7-46c8-925b-cbff70f07ac7" />
-  <br>
-  <em>Graphique d'historique</em>
+  <em>Informations détaillées</em>
 </p>
 
 Au clic sur un marqueur, des **informations détaillées** s’affichent :
@@ -80,6 +74,12 @@ Au clic sur un marqueur, des **informations détaillées** s’affichent :
 
 Graphique d'historique
 <img width="652" height="882" alt="image" src="https://github.com/user-attachments/assets/0ad130f1-ea96-49a5-adb7-81aeaafbe465" />
+
+<p align="center">
+  <img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/73105a21-7699-48d9-b375-97c21a73b538" />
+  <br>
+  <em>Graphique d'historique</em>
+</p>
 
 
 Un graphique montrera l’évolution de :
@@ -135,4 +135,5 @@ Ce projet a été réalisé par :
 - **Margot Mauny**
 - **Charles Bergeat**
 - **Arthur Kowalski**
+
 
