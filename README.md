@@ -73,7 +73,7 @@ Au clic sur un marqueur, des **informations détaillées** s’affichent :
 3. Cliquer sur **Afficher l’historique**
 
 <p align="center">
-  <img width="659" height="804" alt="Graphique d'historique" src="https://github.com/user-attachments/assets/a4e90515-25e7-4b9b-9306-bbaed8dc9290" />
+  <img width="593" height="724" alt="Graphique d'historique" src="https://github.com/user-attachments/assets/a4e90515-25e7-4b9b-9306-bbaed8dc9290" />
   <br>
   <em>Graphique d'historique</em>
 </p>
@@ -134,6 +134,7 @@ Ce projet a été réalisé par :
 - **Margot Mauny**
 - **Charles Bergeat**
 - **Arthur Kowalski**
+
 
 
 
