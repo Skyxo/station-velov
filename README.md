@@ -78,9 +78,6 @@ Au clic sur un marqueur, des **informations détaillées** s’affichent :
   <em>Graphique d'historique</em>
 </p>
 
-
-<img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/73105a21-7699-48d9-b375-97c21a73b538" />
-
 Un graphique montrera l’évolution de :
 - Nombre de vélos disponibles
 - Nombre de places disponibles
@@ -104,6 +101,12 @@ Un menu de filtres est accessible en bas à gauche de la page. Il permet de n’
 ---
 
 ## 🚴‍♂️ Fonctionnalité Itinéraire
+
+<p align="center">
+  <img width="1919" height="1079" alt="Interface itinéraire" src="https://github.com/user-attachments/assets/8dc0e084-5232-4b67-8619-0bd820775d31" />
+  <br>
+  <em>Interface itinéraire</em>
+</p>
 
 Un bouton **Itinéraire** (en haut à droite) permet de planifier un trajet combinant marche et vélo.
 
@@ -134,6 +137,7 @@ Ce projet a été réalisé par :
 - **Margot Mauny**
 - **Charles Bergeat**
 - **Arthur Kowalski**
+
 
 
 
