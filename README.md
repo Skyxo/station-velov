@@ -127,20 +127,3 @@ Le trajet s’affiche en 3 segments :
 - 🔴 Station → arrivée (à pied)
 
 Un bouton permet de **réinitialiser** l’itinéraire.
-
----
-
-## 👥 Équipe du projet
-
-Ce projet a été réalisé par :
-- **Carole Lamy**
-- **Margot Mauny**
-- **Charles Bergeat**
-- **Arthur Kowalski**
-
-
-
-
-
-
-
